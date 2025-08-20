@@ -169,13 +169,15 @@ def main():
     comb_cluster_labels, _ = clustering(x_comb, 2)
     ari = adjusted_rand_score(Yt, comb_cluster_labels[ns:])
     print(f"Adjusted Rand Index (ARI) of target on transported domain: {ari:.4f}")
-
+    clusterT, _ = clustering(xt_hat, 2)
+    ariT = adjusted_rand_score(Yt, clusterT)
     # Save summary to txt
     with open(log_file, "w") as f:
         f.write(json.dumps(config, indent=2))  # lưu luôn config
         f.write("\n\n")
         f.write(f"Original ARI: {original_ari:.4f}\n")
         f.write(f"Final ARI (transported): {ari:.4f}\n")
+        f.write(f"Final ARI (transported, target only): {ariT:.4f}\n")
         f.write("Training finished successfully.\n")
 
 

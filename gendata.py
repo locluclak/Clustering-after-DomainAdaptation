@@ -476,6 +476,86 @@ def gen_domain_adaptation_data2(
         "target": (X_target, y_target, center_target)
     }
 
+def gen_domain_adaptation_data3(
+    ns: int,
+    nt: int,
+    n_features:int,
+    dist:float=1,
+    shift:float = 0,
+    std_source: Union[float, List[float]] = 1.0,
+    std_target: Union[float, List[float]] = 1.0,
+    contamination: float = 0.02,
+    random_state=None,
+):
+    return
+
+def random_points_distance_k(d: int, k: int, base_dist: float, seed=None):
+    """
+    Generate k cluster centers in d-dimensional space.
+    Distance between clusters is random but scaled around base_dist.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    centers = []
+    # First center
+    p = np.random.randn(d)
+    centers.append(p)
+
+    for _ in range(1, k):
+        direction = np.random.randn(d)
+        direction /= np.linalg.norm(direction)
+
+        # randomize distance: e.g. uniform in [0.5*base_dist, 1.5*base_dist]
+        dist = base_dist * np.random.uniform(0.5, 1.5)
+
+        new_center = centers[0] + dist * direction
+        centers.append(new_center)
+
+    return np.array(centers)
+
+
+def gen_domain_adaptation_data_k(
+    ns: int,
+    nt: int,
+    n_features: int,
+    n_clusters: int,
+    dist: float = 1,
+    shift: float = 0,
+    std_source: Union[float, List[float]] = 1.0,
+    std_target: Union[float, List[float]] = 1.0,
+    contamination: float = 0.02,
+    random_state=None,
+):
+    # Generate k centers for source
+    centers_s = random_points_distance_k(n_features, n_clusters, dist, seed=random_state)
+
+    X_source, y_source, center_source = make_blobs(
+        n_samples=ns,
+        n_features=n_features,
+        centers=centers_s,
+        cluster_std=std_source,
+        random_state=random_state,
+        return_centers=True,
+    )
+
+    # Shift target centers
+    centers_t = center_source + shift
+
+    X_target, y_target, center_target = make_blobs(
+        n_samples=nt,
+        n_features=n_features,
+        centers=centers_t,
+        cluster_std=std_target,
+        random_state=random_state,
+        return_centers=True,
+    )
+
+    return {
+        "source": (X_source, y_source, center_source),
+        "target": (X_target, y_target, center_target),
+    }
+
 from sklearn.cluster import KMeans
 
 def clustering(
