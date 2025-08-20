@@ -1,135 +1,75 @@
-import numpy as np  
-import matplotlib.pyplot as plt
-import gendata
+import os
+import time
+import json
+import numpy as np
 import torch
-from random import randint
-
-from torch.utils.data import DataLoader, TensorDataset
-
-from models.wdgrl_ae import *
+from torch.utils.data import TensorDataset
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.metrics import adjusted_rand_score
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 
-import optuna
+import gendata
+from models.wdgrl_ae import WDGRL
 
 
-def clustering(
-        X, 
-        n_cluster: int):
+def clustering(X, n_cluster: int):
     kmeans = KMeans(n_clusters=n_cluster, random_state=42)
     labels = kmeans.fit_predict(X)
     return labels, kmeans
 
-# def objective(trial):
-#     # Hyperparameter search space
-#     # encoder_hidden_dims = trial.suggest_categorical("encoder_hidden_dims", [[32], [10,10], [32,16]])
-#     # critic_hidden_dims  = trial.suggest_categorical("critic_hidden_dims", [[10, 10], [32,16], [32]])
-    
-#     # n_encoder_layers = trial.suggest_int("n_encoder_layers", 1, 2)
-#     # encoder_hidden_dims = []
-#     # for i in range(n_encoder_layers):
-#     #     # Suggest the number of nodes for each encoder layer
-#     #     dim = trial.suggest_int(f"encoder_dim_l{i}", d//2, d*2, log=True)
-#     #     encoder_hidden_dims.append(dim)
-#     # # This is the line you need to add for the encoder
-#     # trial.set_user_attr("encoder_hidden_dims", encoder_hidden_dims)
-    
-#     # # n_decoder_layers = trial.suggest_int("n_decoder_layers", 0, 2)
-#     # # decoder_hidden_dims = []
-#     # # for i in range(n_decoder_layers):
-#     # #     dim = trial.suggest_int(f"decoder_dim_l{i}", d//2, d*2, log=True)
-#     # #     decoder_hidden_dims.append(dim)
-#     # decoder_hidden_dims = encoder_hidden_dims[::-1]
-#     # trial.set_user_attr("decoder_hidden_dims", decoder_hidden_dims)
 
+def main():
+    # ==== Load config ====
+    with open("config.json", "r") as f:
+        config = json.load(f)
 
-#     # # --- Critic Architecture Tuning ---
-#     # # Suggest the number of hidden layers for the critic
-#     # n_critic_layers = trial.suggest_int("n_critic_layers", 1, 3)
-#     # critic_hidden_dims = []
-#     # for i in range(n_critic_layers):
-#     #     # Suggest the number of nodes for each critic layer
-#     #     dim = trial.suggest_int(f"critic_dim_l{i}", d//2, d*2, log=True)
-#     #     critic_hidden_dims.append(dim)
-#     # # This is the line you need to add for the critic
-#     # trial.set_user_attr("critic_hidden_dims", critic_hidden_dims)
+    exp_cfg = config["experiment"]
+    data_cfg = config["data"]
+    model_cfg = config["model"]
+    train_cfg = config["training"]
 
-    
-#     # alpha2 = 1e-3
-#     # alpha1 = 1e-3
-    
-#     alpha2 = trial.suggest_float("alpha2", 1e-4, 1e-2, log=True)
-#     alpha1  = trial.suggest_float("alpha1", 1e-4, 1e-2, log=True)
-#     gamma = trial.suggest_float("gamma", 0.01, 10.0)
-#     lambda_ = trial.suggest_float("lambda_", 0.01, 10.0)
-#     # dc_iter = trial.suggest_int("dc_iter", 5, 15)
-#     batch_size = 32 #trial.suggest_categorical("batch_size", [16, 32, 64])
+    # ==== Logging setup ====
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    log_dir = os.path.join("logs", timestamp)
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "results.txt")
 
-#     # Build WDGRL tune_model
-#     tune_model = WDGRL(
-#         input_dim=d,
-#         encoder_hidden_dims=[32],
-#         decoder_hidden_dims=[32],
-#         critic_hidden_dims=[32,16],
-#         use_decoder=True,
-#         alpha2=alpha2,
-#         alpha1=alpha1,
-#         seed=42
-#     )
+    # ==== Generate data ====
+    seed = exp_cfg["seed"]
+    ns, nt, d = data_cfg["ns"], data_cfg["nt"], data_cfg["n_features"]
+    n_clusters = exp_cfg["n_clusters"]
 
-#     # Train (shorter epochs for tuning)
-#     loss = tune_model.train(
-#         source_dataset_small, 
-#         target_dataset_small,
-#         num_epochs=60,
-#         with_decoder=True,
-#         gamma=gamma,
-#         lambda_= lambda_,
-#         dc_iter=10,#dc_iter,
-#         batch_size=batch_size
-#     )
-
-#     xs_small_hat = tune_model.extract_feature(xs_small.cuda())
-#     xt_small_hat = tune_model.extract_feature(xt_small.cuda())
-#     xs_small_hat = xs_small_hat.cpu().numpy()
-#     xt_small_hat = xt_small_hat.cpu().numpy()
-    
-#     # Combine and cluster
-#     x_small_comb = np.vstack((xs_small_hat, xt_small_hat))
-#     comb_sm_cluster_labels, _ = clustering(x_small_comb, n_clusters)
-#     print("Loss: ",loss["loss"][-1])
-#     # Compute silhouette_score on transported target domain
-#     scr = silhouette_score(x_small_comb, comb_sm_cluster_labels)
-#     return scr  # Optuna will maximize this
-
-
-if __name__ == "__main__":
-    ns, nt, d = 1500, 100, 16
-    n_clusters = 2
-    seed = randint(0, 2**32 - 1)
-    # seed = None
-    print("Randomly choose seed =",seed)
+    print("Using seed =", seed)
 
     dataset = gendata.gen_domain_adaptation_data2(
-                ns = ns, 
-                nt = nt, 
-                n_features= d, 
-                dist=3,
-                std_source=1,
-                std_target=3,
-                shift=0,
-                random_state=seed
-                )
-    Xs, Ys, cen_s = dataset["source"]
-    Xt, Yt, cen_t = dataset["target"]
+        ns=ns,
+        nt=nt,
+        n_features=d,
+        dist=data_cfg["dist"],
+        std_source=data_cfg["std_source"],
+        std_target=data_cfg["std_target"],
+        shift=data_cfg["shift"],
+        random_state=seed,
+    )
+    Xs, Ys, _ = dataset["source"]
+    Xt, Yt, _ = dataset["target"]
 
-    cluster_labels, model1 = clustering(Xt,2)
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
 
-    ari = adjusted_rand_score(Yt, cluster_labels)
-    print(f'Adjusted Rand Index (ARI) only on target domain: {ari:.4f}')
+    # ==== Scaling ====
+    X_train_all = np.vstack([Xs, Xt])
+    scaler = StandardScaler().fit(X_train_all)
+    Xs = scaler.transform(Xs)
+    Xt = scaler.transform(Xt)
 
+    # ==== Original clustering baseline ====
+    cluster_labels, _ = clustering(Xt, n_cluster=n_clusters)
+    original_ari = adjusted_rand_score(Yt, cluster_labels)
+    print(f"Adjusted Rand Index (ARI) only on target domain: {original_ari:.4f}")
 
-
+    # ==== Torch datasets ====
     xs = torch.from_numpy(Xs).float()
     ys = torch.from_numpy(Ys).long()
     xt = torch.from_numpy(Xt).float()
@@ -138,120 +78,106 @@ if __name__ == "__main__":
     source_dataset = TensorDataset(xs)
     target_dataset = TensorDataset(xt)
 
-    encoder_hidden_dims = [32]
-    decoder_hidden_dims = [32]
-    critic_hidden_dims = [32,16]
+    # ==== WDGRL model ====
+    final_model = WDGRL(
+        input_dim=model_cfg["input_dim"],
+        encoder_hidden_dims=model_cfg["encoder_hidden_dims"],
+        decoder_hidden_dims=model_cfg["decoder_hidden_dims"],
+        critic_hidden_dims=model_cfg["critic_hidden_dims"],
+        alpha1=model_cfg["alpha1"],
+        alpha2=model_cfg["alpha2"],
+        seed=exp_cfg["model_random_state"],
+        reallabel=Yt,
+    )
 
-    model = WDGRL(
-        input_dim=d, 
-        encoder_hidden_dims=encoder_hidden_dims,
-        critic_hidden_dims=critic_hidden_dims,
-        decoder_hidden_dims= decoder_hidden_dims,
-        use_decoder=True,
-        alpha1 = 1e-3,
-        alpha2 = 1e-3,
-        seed=42)
-
-    losses = model.train(
-        source_dataset, 
+    log_loss = final_model.train(
+        source_dataset,
         target_dataset,
-        num_epochs=100,
-        gamma=5,
-        lambda_=10,
-        dc_iter= 8,
-        with_decoder=True,
-        batch_size=32,
-        verbose=False
-        )
-    
-    xs_hat = model.extract_feature(xs.cuda())
-    xt_hat = model.extract_feature(xt.cuda())
+        num_epochs=train_cfg["num_epochs"],
+        gamma=train_cfg["gamma"],
+        delta=train_cfg["delta"],
+        lambda_=train_cfg["lambda"],
+        dc_iter=train_cfg["dc_iter"],
+        batch_size=train_cfg["batch_size"],
+        verbose=train_cfg["verbose"],
+        early_stopping=train_cfg["early_stopping"],
+        patience=train_cfg["patience"],
+        min_delta=train_cfg["min_delta"],
+        check_ari=exp_cfg["check_ari"],
+    )
+
+    # ==== Save logs ====
+    total_loss = log_loss["loss"]
+    reconstructionloss = log_loss["decoder_loss"]
+    log_metric = log_loss["log_ari"]
+
+    np.save(os.path.join(log_dir, "total_loss.npy"), np.array(total_loss))
+    np.save(os.path.join(log_dir, "reconstruction_loss.npy"), np.array(reconstructionloss))
+    np.save(os.path.join(log_dir, "log_metric.npy"), np.array(log_metric, dtype=object))
+
+    # Extract specific metrics
+    ari_comb = [d["ari_comb"] for d in log_metric]
+    silhouette_comb = [d["silhouette_comb"] for d in log_metric]
+    ari_Tonly = [d["ari_Tonly"] for d in log_metric]
+    sil_Tonly = [d["sil_Tonly"] for d in log_metric]
+
+    # ==== Plot & Save Figures ====
+    epochs = range(1, len(total_loss) + 1)
+
+    # Loss
+    plt.figure(figsize=(14, 6))
+    plt.plot(epochs, total_loss, linestyle='-', color='blue')
+    plt.title("Loss over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig(os.path.join(log_dir, "loss.png"))
+    plt.close()
+
+    # Silhouette
+    plt.figure(figsize=(14, 6))
+    plt.plot(epochs, silhouette_comb, linestyle='-', color='wheat', label="Combine S&T")
+    plt.plot(epochs, sil_Tonly, linestyle='-', color='plum', label="Transfered T")
+    plt.title("Silhouette over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Silhouette")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(os.path.join(log_dir, "silhouette.png"))
+    plt.close()
+
+    # ARI
+    plt.figure(figsize=(14, 6))
+    plt.plot(epochs, ari_comb, linestyle='-', color='y', label="Combine S&T")
+    plt.plot(epochs, ari_Tonly, linestyle='-', color='m', label="Transfered T")
+    plt.plot(epochs, [original_ari] * len(epochs), linestyle='-', color='green', label="Original")
+    plt.title("ARI over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("ARI")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(os.path.join(log_dir, "ari.png"))
+    plt.close()
+
+    # ==== Final evaluation ====
+    xs_hat = final_model.extract_feature(xs.cuda())
+    xt_hat = final_model.extract_feature(xt.cuda())
     xs_hat = xs_hat.cpu().numpy()
     xt_hat = xt_hat.cpu().numpy()
 
     x_comb = np.vstack((xs_hat, xt_hat))
-    comb_cluster_labels, model2 = clustering(x_comb, n_clusters)
+    comb_cluster_labels, _ = clustering(x_comb, 2)
     ari = adjusted_rand_score(Yt, comb_cluster_labels[ns:])
-    print(f'Adjusted Rand Index (ARI) of target on transported domain: {ari:.4f}')
+    print(f"Adjusted Rand Index (ARI) of target on transported domain: {ari:.4f}")
+
+    # Save summary to txt
+    with open(log_file, "w") as f:
+        f.write(json.dumps(config, indent=2))  # lưu luôn config
+        f.write("\n\n")
+        f.write(f"Original ARI: {original_ari:.4f}\n")
+        f.write(f"Final ARI (transported): {ari:.4f}\n")
+        f.write("Training finished successfully.\n")
 
 
-
-    # n_source_small = 800
-    # n_target_small = 80
-
-    # # Randomly pick indices without replacement
-    # src_indices = torch.randperm(len(xs))[:n_source_small]
-    # tgt_indices = torch.randperm(len(xt))[:n_target_small]
-
-    # # Create smaller tensors
-    # xs_small = xs[src_indices]
-    # xt_small = xt[tgt_indices]
-
-    # # Subset labels (Ys, Yt are numpy arrays)
-    # Ys_small = Ys[src_indices.cpu().numpy()]
-    # Yt_small = Yt[tgt_indices.cpu().numpy()]
-
-    # # Create smaller datasets
-    # source_dataset_small = TensorDataset(xs_small)
-    # target_dataset_small = TensorDataset(xt_small)
-
-    # import warnings
-    # warnings.filterwarnings("ignore", category=UserWarning)
-
-
-    # study = optuna.create_study(direction="maximize")
-    # study.optimize(objective, n_trials=40)
-
-    # print("Best params:", study.best_params)
-    # print("Best silhouette_score:", study.best_value)
-
-    # # Assuming 'study' is your Optuna study object after optimization
-    # best_trial = study.best_trial
-
-    # print("Best Trial:")
-    # print(f"  Value: {best_trial.value}")
-
-    # print("\n  Directly Suggested Parameters:")
-    # for key, value in best_trial.params.items():
-    #     print(f"    {key}: {value}")
-
-    # print("\n  Dynamically Generated Architecture (User Attributes):")
-    # for key, value in best_trial.user_attrs.items():
-    #     print(f"    {key}: {value}")
-
-
-    # best_params = study.best_params
-
-    # final_model = WDGRL(
-    #     input_dim=d,
-    #     encoder_hidden_dims=[32],#best_trial.user_attrs["encoder_hidden_dims"],
-    #     decoder_hidden_dims=[32],#best_trial.user_attrs["decoder_hidden_dims"],
-    #     critic_hidden_dims=[32,16],#best_trial.user_attrs["critic_hidden_dims"],
-    #     alpha2=best_params["alpha2"],
-    #     alpha1=best_params["alpha1"],
-    #     use_decoder=True,
-    #     seed=42
-    # )   
-
-    # # Train longer for final fit
-    # log_loss = final_model.train(
-    #     source_dataset,
-    #     target_dataset,
-    #     num_epochs=200,  # more epochs for final training
-    #     gamma=best_params["gamma"],
-    #     with_decoder=True,
-    #     lambda_= best_params["lambda_"],
-    #     dc_iter=15,#best_params["dc_iter"],
-    #     batch_size=64,#best_params["batch_size"],
-    #     verbose = False
-    # )
-
-    # xs_hat = final_model.extract_feature(xs.cuda())
-    # xt_hat = final_model.extract_feature(xt.cuda())
-    # xs_hat = xs_hat.cpu().numpy()
-    # xt_hat = xt_hat.cpu().numpy()
-
-    # x_comb = np.vstack((xs_hat, xt_hat))
-    # comb_cluster_labels, model2 = clustering(x_comb,2)
-    # ari = adjusted_rand_score(Yt, comb_cluster_labels[ns:])
-    # print(f'Adjusted Rand Index (ARI) of target on transported domain: {ari:.4f}')
+if __name__ == "__main__":
+    main()

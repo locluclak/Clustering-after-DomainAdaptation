@@ -1,5 +1,5 @@
 from sklearn.datasets import make_blobs
-from typing import Tuple, Optional, Union, Dict,Literal
+from typing import Tuple, Optional, Union, Dict,Literal, List
 import numpy as np 
 def gen_domain_adaptation_data(
     n_source: int,
@@ -205,8 +205,10 @@ def generate_rotation_matrix(n_features: int, angle_factor: float = 0.3) -> np.n
     # Scale the rotation by angle_factor
     return angle_factor * Q + (1 - angle_factor) * np.eye(n_features)
 
-def random_points_distance_k(d:int, k:float):
+def random_points_distance_k(d:int, k:float, seed = None):
     # First point
+    if seed is not None:
+        np.random.seed(seed)
     p1 = np.random.randn(d)  # can also be uniform in a bounded region
     # Random direction
     direction = np.random.randn(d)
@@ -437,13 +439,13 @@ def gen_domain_adaptation_data2(
     n_features:int,
     dist:float=1,
     shift:float = 0,
-    std_source: float = 1.0,
-    std_target: float = 1.0,
+    std_source: Union[float, List[float]] = 1.0,
+    std_target: Union[float, List[float]] = 1.0,
     contamination: float = 0.02,
     random_state=None,
     ):
     
-    centers_s = random_points_distance_k(n_features, dist)
+    centers_s = random_points_distance_k(n_features, dist,seed=random_state)
 
     X_source, y_source, center_source = make_blobs(
         n_samples=ns, 
@@ -466,8 +468,8 @@ def gen_domain_adaptation_data2(
     )
 
     # Xóa outlier 1%
-    X_source, y_source = remove_outliers(X_source, y_source, contamination, random_state)
-    X_target, y_target = remove_outliers(X_target, y_target, contamination, random_state)
+    # X_source, y_source = remove_outliers(X_source, y_source, contamination, random_state)
+    # X_target, y_target = remove_outliers(X_target, y_target, contamination, random_state)
 
     return {
         "source": (X_source, y_source, center_source),
@@ -507,16 +509,16 @@ from tqdm import trange
 if __name__ == "__main__":
     fine = 0
     notfine = 0
-    for _ in trange(1000):
+    for _ in trange(1):
         ns = 1000
         nt = 40
         dataset = gen_domain_adaptation_data2(
             ns = ns, 
             nt = nt, 
-            n_features= 16, 
+            n_features= 2, 
             dist=3,
-            std_source=1,
-            std_target=3,
+            std_source=[1,1.5],
+            std_target=[1,2],
             shift=0,
             random_state=None
             )
@@ -540,6 +542,14 @@ if __name__ == "__main__":
             fine+=1
         else:
             notfine+=1
+        # Plot both clustering results
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+        plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
+        plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
+
+        plt.tight_layout()
+        plt.show()
 
     print("Fine: ", fine)
     print("not fine: ", notfine)
