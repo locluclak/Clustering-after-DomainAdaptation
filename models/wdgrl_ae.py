@@ -8,7 +8,8 @@ from tqdm.auto import trange
 from torch.utils.data import DataLoader, TensorDataset
 import os
 import random
-
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 def set_seed(seed: int):
     """Sets the seed for reproducibility across multiple libraries."""
     os.environ['PYTHONHASHSEED'] = str(seed)  # Python hash seed
@@ -102,10 +103,11 @@ class WDGRL():
             alpha1: float = 1e-4, 
             alpha2: float = 1e-4,
             device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+            reallabel= None,
             seed = None
             ):
 
-
+        
         self.device = device
         
         if seed is not None:
@@ -122,6 +124,42 @@ class WDGRL():
             self.decoderT = Decoder(encoder_hidden_dims[-1], decoder_hidden_dims,output_dim=input_dim).to(self.device)
             self.decoder_optimizerT = torch.optim.Adam(self.decoderT.parameters(), lr= alpha2)
     
+        self.reallabel = reallabel
+
+    def check_metric(
+            self,
+            Xs,
+            Xt,
+            n_cluster:int =2,
+            ):
+        if self.reallabel is None:
+            return -1
+        ns = len(Xs)
+
+
+        xs_hat = self.extract_feature(Xs.tensors[0].to(self.device))
+        xt_hat = self.extract_feature(Xt.tensors[0].to(self.device))
+        xs_hat = xs_hat.cpu().numpy()
+        xt_hat = xt_hat.cpu().numpy()
+
+        x_comb = np.vstack((xs_hat, xt_hat))
+
+        kmeans = KMeans(n_clusters=n_cluster, random_state=42)
+        predicted_labels = kmeans.fit_predict(x_comb)
+
+        ari = adjusted_rand_score(self.reallabel, predicted_labels[ns:])
+        sil = silhouette_score(x_comb, predicted_labels)
+
+        kmean2 = KMeans(n_clusters=n_cluster, random_state=42)
+        pre_label_onlyT = kmean2.fit_predict(xt_hat)
+        ariT = adjusted_rand_score(self.reallabel, pre_label_onlyT)
+        silT = silhouette_score(xt_hat, pre_label_onlyT)
+        return {
+            "ari_comb": ari,
+            "silhouette_comb": sil,
+            "ari_Tonly": ariT,
+            "sil_Tonly": silT,
+        }
 
     def compute_gradient_penalty(
             self, 
@@ -146,7 +184,6 @@ class WDGRL():
         gradient_penalty = ((gradient_norm - 1)**2).mean()
         return gradient_penalty
 
-
     def train(
             self, 
             source_dataset: TensorDataset, 
@@ -162,6 +199,7 @@ class WDGRL():
             early_stopping: bool = True,
             patience: int = 20,
             min_delta: float = 1e-5,
+            check_ari: bool = True,
             ) -> List[float]:
         
         self.encoder.train()
@@ -179,6 +217,7 @@ class WDGRL():
         best_epoch = 0
         wait = 0
         best_state = None
+        log_ari = []
         
         for epoch in trange(num_epochs, desc='Epoch'):
 
@@ -253,7 +292,8 @@ class WDGRL():
 
             with torch.no_grad():
                 loss += objective_function.item()
-
+            if check_ari:
+                log_ari.append(self.check_metric(source_dataset, target_dataset, n_cluster=2))
             # Early stopping logic
             current_objective = wasserstein_distance.item()
             if (epoch > 50):# and (objective_function < 3):
@@ -282,17 +322,19 @@ class WDGRL():
                         if with_decoder and 'decoderT' in best_state:
                             self.decoderT.load_state_dict(best_state['decoderT'])
                         break
-
+                
             source_critic_scores.append(self.criticize(source_data))
             target_critic_scores.append(self.criticize(target_data))
             losses.append(loss)#/len(source_data))
 
+            
             if verbose:
                 print(f'Epoch {epoch + 1}/{num_epochs} | Loss: {loss/len(source_data)}')
 
         return {
             "loss": losses,
             "decoder_loss": reconstruction_loss,
+            "log_ari": log_ari,
             }
 
     @torch.no_grad()
