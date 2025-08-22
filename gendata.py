@@ -476,23 +476,11 @@ def gen_domain_adaptation_data2(
         "target": (X_target, y_target, center_target)
     }
 
-def gen_domain_adaptation_data3(
-    ns: int,
-    nt: int,
-    n_features:int,
-    dist:float=1,
-    shift:float = 0,
-    std_source: Union[float, List[float]] = 1.0,
-    std_target: Union[float, List[float]] = 1.0,
-    contamination: float = 0.02,
-    random_state=None,
-):
-    return
 
-def random_points_distance_k(d: int, k: int, base_dist: float, seed=None):
+def random_points_distance_k2(d: int, k: int, base_dist: float, stds, seed=None):
     """
     Generate k cluster centers in d-dimensional space.
-    Distance between clusters is random but scaled around base_dist.
+    Ensures that larger-std clusters are further apart to reduce overlap.
     """
     if seed is not None:
         np.random.seed(seed)
@@ -502,12 +490,13 @@ def random_points_distance_k(d: int, k: int, base_dist: float, seed=None):
     p = np.random.randn(d)
     centers.append(p)
 
-    for _ in range(1, k):
+    for i in range(1, k):
         direction = np.random.randn(d)
         direction /= np.linalg.norm(direction)
 
-        # randomize distance: e.g. uniform in [0.5*base_dist, 1.5*base_dist]
-        dist = base_dist * np.random.uniform(0.5, 1.5)
+        # minimum required distance based on std
+        min_dist = 1.2 * (stds[i] + np.mean(stds[:i]))  # 2.5 = separation factor
+        dist = base_dist * np.random.uniform(0.5, 1.5) + min_dist
 
         new_center = centers[0] + dist * direction
         centers.append(new_center)
@@ -527,8 +516,16 @@ def gen_domain_adaptation_data_k(
     contamination: float = 0.02,
     random_state=None,
 ):
+    # handle case: scalar std -> replicate for each cluster
+    if isinstance(std_source, (int, float)):
+        std_source = [std_source] * n_clusters
+    if isinstance(std_target, (int, float)):
+        std_target = [std_target] * n_clusters
+
     # Generate k centers for source
-    centers_s = random_points_distance_k(n_features, n_clusters, dist, seed=random_state)
+    centers_s = random_points_distance_k2(
+        n_features, n_clusters, dist, stds=std_source, seed=random_state
+    )
 
     X_source, y_source, center_source = make_blobs(
         n_samples=ns,

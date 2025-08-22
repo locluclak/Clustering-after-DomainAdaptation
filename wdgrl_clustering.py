@@ -29,11 +29,7 @@ def main():
     model_cfg = config["model"]
     train_cfg = config["training"]
 
-    # ==== Logging setup ====
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", timestamp)
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "results.txt")
+
 
     # ==== Generate data ====
     seed = exp_cfg["seed"]
@@ -80,7 +76,7 @@ def main():
 
     # ==== WDGRL model ====
     final_model = WDGRL(
-        input_dim=model_cfg["input_dim"],
+        input_dim=data_cfg["n_features"],
         encoder_hidden_dims=model_cfg["encoder_hidden_dims"],
         decoder_hidden_dims=model_cfg["decoder_hidden_dims"],
         critic_hidden_dims=model_cfg["critic_hidden_dims"],
@@ -110,6 +106,11 @@ def main():
     total_loss = log_loss["loss"]
     reconstructionloss = log_loss["decoder_loss"]
     log_metric = log_loss["log_ari"]
+    # ==== Logging setup ====
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    log_dir = os.path.join("logs", timestamp)
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "results.txt")
 
     np.save(os.path.join(log_dir, "total_loss.npy"), np.array(total_loss))
     np.save(os.path.join(log_dir, "reconstruction_loss.npy"), np.array(reconstructionloss))
