@@ -1,0 +1,52 @@
+experiment:
+  seed: null
+  model_random_state: 42
+  n_clusters: 3
+  check_ari: true
+data:
+  ns: 2000
+  nt: 100
+  n_features: 10
+  dist: 1.8
+  std_source:
+  - 0.25
+  - 0.5
+  - 1
+  std_target:
+  - 0.25
+  - 0.5
+  - 1
+  shift: 3
+  scaler: StandardScaler
+  data_gen_method: gen_domain_adaptation_data_k
+model:
+  encoder_hidden_dims:
+  - 500
+  - 100
+  - 50
+  decoder_hidden_dims:
+  - 50
+  - 100
+  - 500
+  critic_hidden_dims:
+  - 100
+  alpha1: 0.0001
+  alpha2: 0.0001
+  use_decoder: false
+training:
+  num_epochs: 6000
+  batch_size: 32
+  dc_iter: 5
+  gamma: 7.0
+  delta: 0.5
+  lambda: 1.0
+  early_stopping: false
+  patience: 40
+  min_delta: 1.0e-05
+  verbose: false
+
+
+Original ARI: 0.3987
+Final ARI (transported): 0.0520
+Final ARI (transported, target only): 0.1691
+Training finished successfully.

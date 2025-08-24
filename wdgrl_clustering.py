@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
@@ -78,6 +78,7 @@ def main():
     # ==== Original clustering baseline ====
     cluster_labels, _ = clustering(Xt, n_cluster=n_clusters)
     original_ari = adjusted_rand_score(Yt, cluster_labels)
+    original_sil = silhouette_score(Xt, cluster_labels)
     print(f"Adjusted Rand Index (ARI) only on target domain: {original_ari:.4f}")
 
     # ==== Torch datasets ====
@@ -154,6 +155,7 @@ def main():
     # Silhouette
     plt.figure(figsize=(14, 6))
     plt.plot(epochs, silhouette_comb, linestyle='-', color='wheat', label="Combine S&T")
+    plt.plot(epochs, [original_sil] * len(epochs), linestyle='-', color='green', label="Original")
     plt.plot(epochs, sil_Tonly, linestyle='-', color='plum', label="Transfered T")
     plt.title("Silhouette over Epochs")
     plt.xlabel("Epoch")

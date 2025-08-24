@@ -553,6 +553,38 @@ def gen_domain_adaptation_data_k(
         "target": (X_target, y_target, center_target),
     }
 
+
+def sample_normal_data(mu, sigma, n_samples=1, random_state=None):
+    """
+    Generate samples from X ~ MN_{n x q}(mu, I_n, sigma^2 I_q)
+
+    Parameters
+    ----------
+    mu : np.ndarray
+        Mean matrix of shape (n, q).
+    sigma : float
+        Standard deviation (sqrt of variance).
+    n_samples : int, optional
+        Number of random matrices to generate (default=1).
+    random_state : int, optional
+        Seed for reproducibility.
+
+    Returns
+    -------
+    X : np.ndarray
+        If n_samples=1 -> array of shape (n, q)
+        If n_samples>1 -> array of shape (n_samples, n, q)
+    """
+    rng = np.random.default_rng(random_state)
+    n, q = mu.shape
+    noise = rng.normal(loc=0.0, scale=sigma, size=(n_samples, n, q))
+    samples = mu + noise
+
+    if n_samples == 1:
+        return samples[0]  # return (n, q) matrix
+    return samples
+
+
 from sklearn.cluster import KMeans
 
 def clustering(
