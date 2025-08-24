@@ -495,8 +495,8 @@ def random_points_distance_k2(d: int, k: int, base_dist: float, stds, seed=None)
         direction /= np.linalg.norm(direction)
 
         # minimum required distance based on std
-        min_dist = 1.2 * (stds[i] + np.mean(stds[:i]))  # 2.5 = separation factor
-        dist = base_dist * np.random.uniform(0.5, 1.5) + min_dist
+        # min_dist = 1.2 * (stds[i] + np.mean(stds[:i]))  # 2.5 = separation factor
+        dist = base_dist * np.random.uniform(0.5, 1.5) #+ min_dist
 
         new_center = centers[0] + dist * direction
         centers.append(new_center)
@@ -586,16 +586,18 @@ from tqdm import trange
 if __name__ == "__main__":
     fine = 0
     notfine = 0
-    for _ in trange(1):
+    for _ in trange(100):
         ns = 1000
-        nt = 40
-        dataset = gen_domain_adaptation_data2(
+        nt = 50
+        nc = 4
+        dataset = gen_domain_adaptation_data_k(
             ns = ns, 
             nt = nt, 
-            n_features= 2, 
-            dist=3,
-            std_source=[1,1.5],
-            std_target=[1,2],
+            n_features= 16, 
+            dist=3.5,
+            n_clusters=nc,
+            std_source=[1,1.1,1.3,0.6],
+            std_target=[1,1.7,1.9,1.2],
             shift=0,
             random_state=None
             )
@@ -603,16 +605,16 @@ if __name__ == "__main__":
         Xt, yt, cen_t = dataset["target"]
 
         
-        cluster_target,kmeansT = clustering(Xt, 2)
+        cluster_target,kmeansT = clustering(Xt, nc)
         X_comb = np.vstack((Xs, Xt))
-        cluster_comb, kmeanC = clustering(X_comb, 2)
+        cluster_comb, kmeanC = clustering(X_comb, nc)
         # print(X_comb.shape, np.hstack((ys,yt)).shape)
 
 
         ariT = adjusted_rand_score(yt, cluster_target)
         ariC = adjusted_rand_score(yt, cluster_comb[ns:])
-        # print(f"Target only: {ariT}")
-        # print(f"Combined: {ariC}")
+        print(f"Target only: {ariT}")
+        print(f"Combined: {ariC}")
 
 
         if ariT < ariC:
@@ -620,13 +622,13 @@ if __name__ == "__main__":
         else:
             notfine+=1
         # Plot both clustering results
-        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        # fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
-        plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
-        plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
+        # plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
+        # plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
 
-        plt.tight_layout()
-        plt.show()
+        # plt.tight_layout()
+        # plt.show()
 
     print("Fine: ", fine)
     print("not fine: ", notfine)

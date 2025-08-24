@@ -1,6 +1,6 @@
 import os
 import time
-import json
+import yaml
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
@@ -21,8 +21,8 @@ def clustering(X, n_cluster: int):
 
 def main():
     # ==== Load config ====
-    with open("config.json", "r") as f:
-        config = json.load(f)
+    with open("config.yaml", "r") as f:
+        config = yaml.safe_load(f)
 
     exp_cfg = config["experiment"]
     data_cfg = config["data"]
@@ -37,17 +37,32 @@ def main():
     n_clusters = exp_cfg["n_clusters"]
 
     print("Using seed =", seed)
-
-    dataset = gendata.gen_domain_adaptation_data2(
-        ns=ns,
-        nt=nt,
-        n_features=d,
-        dist=data_cfg["dist"],
-        std_source=data_cfg["std_source"],
-        std_target=data_cfg["std_target"],
-        shift=data_cfg["shift"],
-        random_state=seed,
-    )
+    print("Data config ", data_cfg)
+    # Select data generation method
+    data_gen_method = data_cfg.get("data_gen_method", "gen_domain_adaptation_data2")
+    if data_gen_method == "gen_domain_adaptation_data_k":
+        dataset = gendata.gen_domain_adaptation_data_k(
+            ns=ns,
+            nt=nt,
+            n_features=d,
+            n_clusters=n_clusters,
+            dist=data_cfg["dist"],
+            std_source=data_cfg["std_source"],
+            std_target=data_cfg["std_target"],
+            shift=data_cfg["shift"],
+            random_state=seed,
+        )
+    else:
+        dataset = gendata.gen_domain_adaptation_data2(
+            ns=ns,
+            nt=nt,
+            n_features=d,
+            dist=data_cfg["dist"],
+            std_source=data_cfg["std_source"],
+            std_target=data_cfg["std_target"],
+            shift=data_cfg["shift"],
+            random_state=seed,
+        )
     Xs, Ys, _ = dataset["source"]
     Xt, Yt, _ = dataset["target"]
 
@@ -131,6 +146,7 @@ def main():
     plt.title("Loss over Epochs")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    # plt.ylim(0, 1.0)
     plt.grid(True)
     plt.savefig(os.path.join(log_dir, "loss.png"))
     plt.close()
@@ -142,6 +158,7 @@ def main():
     plt.title("Silhouette over Epochs")
     plt.xlabel("Epoch")
     plt.ylabel("Silhouette")
+    plt.ylim(0, 1.0)
     plt.grid(True)
     plt.legend()
     plt.savefig(os.path.join(log_dir, "silhouette.png"))
@@ -155,6 +172,7 @@ def main():
     plt.title("ARI over Epochs")
     plt.xlabel("Epoch")
     plt.ylabel("ARI")
+    plt.ylim(0, 1.0)
     plt.grid(True)
     plt.legend()
     plt.savefig(os.path.join(log_dir, "ari.png"))
@@ -174,7 +192,7 @@ def main():
     ariT = adjusted_rand_score(Yt, clusterT)
     # Save summary to txt
     with open(log_file, "w") as f:
-        f.write(json.dumps(config, indent=2))  # lưu luôn config
+        yaml.safe_dump(config, f, sort_keys=False, allow_unicode=True)  # lưu luôn config
         f.write("\n\n")
         f.write(f"Original ARI: {original_ari:.4f}\n")
         f.write(f"Final ARI (transported): {ari:.4f}\n")
