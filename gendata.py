@@ -496,7 +496,7 @@ def random_points_distance_k2(d: int, k: int, base_dist: float, stds, seed=None)
 
         # minimum required distance based on std
         # min_dist = 1.2 * (stds[i] + np.mean(stds[:i]))  # 2.5 = separation factor
-        dist = base_dist * np.random.uniform(0.5, 1.5) #+ min_dist
+        dist = base_dist #* np.random.uniform(0.5, 1.5) #+ min_dist
 
         new_center = centers[0] + dist * direction
         centers.append(new_center)
