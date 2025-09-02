@@ -2,6 +2,18 @@ import numpy as np
 from mpmath import mp
 mp.dps = 500
 
+def construct_p_q_t(a, b, A = None):
+    if A is None:
+        p = np.dot(b.T, b)
+        q = np.dot(b.T, a) + np.dot(a.T, b)
+        t = np.dot(a.T, a)
+        return p, q, t
+    
+    p = np.dot(b.T, np.dot(A, b))
+    q = np.dot(b.T, np.dot(A, a)) + np.dot(a.T, np.dot(A, b))
+    t = np.dot(a.T, np.dot(A, a))
+    return p, q, t
+
 def compute_p_value(intervals, test_stat, etaT_Sigma_eta):
     denominator = 0
     numerator = None
