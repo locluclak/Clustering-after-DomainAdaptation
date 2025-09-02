@@ -1,8 +1,9 @@
 import torch
 import numpy as np
-import util
+import utils.util as util
 # import time
 import solveinequalities.interval as bst_solving_eq
+# import solveinequalities.interval as bst_solving_eq
 
 def ReLUcondition(model, a, b, X):
     # p = int(X.shape[0] / 2)

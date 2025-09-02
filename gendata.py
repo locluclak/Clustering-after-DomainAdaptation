@@ -1,3 +1,4 @@
+from os import path
 from sklearn.datasets import make_blobs
 from typing import Tuple, Optional, Union, Dict,Literal, List
 import numpy as np 
@@ -232,7 +233,7 @@ def random_points_distance_k(d:int, k:float, seed = None):
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 def visualby_tsne(X_source, X_target, y_source=None, y_target=None, info=None, 
-                                    perplexity=30, random_state=42):
+                                    perplexity=30, random_state=42, path=None):
     """
     Visualize domain adaptation data using t-SNE for dimensionality reduction.
     """
@@ -320,7 +321,10 @@ def visualby_tsne(X_source, X_target, y_source=None, y_target=None, info=None,
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
-    plt.show()
+    if path is not None:
+        plt.savefig(path)
+    else:   
+        plt.show()
 
 from sklearn.cluster import KMeans
 def visualby_tsne_kmean(X_source, X_target, kmean: KMeans, y_source=None, y_target=None, info=None,

@@ -20,7 +20,7 @@ experiment:
 data:
   ns: 2000
   nt: 60
-  n_features: 10
+  n_features: 5
   dist: 1.5 # distance between clusters
   std_source: [0.25, 0.5, 1] # scalar or List len() = n_clusters
   std_target: [0.25, 0.5, 1]
@@ -40,7 +40,7 @@ training:
   num_epochs: 6000
   batch_size: 32
   dc_iter: 5
-  gamma: 13.0
+  gamma: 10.0
   delta: 0.5 # delta controls the decoder - ignore if use_decoder = false
   lambda: 1.0
   # early stopping is not complete - set false
