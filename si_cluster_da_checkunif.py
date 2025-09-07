@@ -6,6 +6,7 @@ import yaml
 import time
 from tqdm import tqdm
 import random
+from functools import partial
 
 import utils.construct_interval as construct_interval
 from utils.kmeans import kmeans
@@ -67,11 +68,11 @@ def overconditioning(model, X, a, b, n_clusters, initial_centroids_obs, labels_a
     final_interval = util.interval_intersection(interval_da, interval_kmean)
     return final_interval
 
-def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20):
+def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None):
     n, d = X.shape
     z =  zmin
     zmax = zmax
-    # countitv=0
+    countitv=0
     Z = []
     stepsize= 0.00001
     # approximate total iterations
@@ -95,7 +96,7 @@ def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, z
             # if sorted(M) == sorted(M_z):
             if np.array_equal(c1_obs, idx_cluster_c1) and np.array_equal(c2_obs, idx_cluster_c2):
                 Z = util.interval_union(Z, oc)
-                # countitv+=1
+                countitv+=1
             # print("oc:", oc)
             # print("z :", z)
             z = oc[-1][1] # ruv
@@ -103,9 +104,53 @@ def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, z
             # with open(f"./experiments/time_{n}_{p}.txt", "a") as f:
             #     f.write(f"{en-st}\n")
             pbar.update(int((z - zmin) / stepsize) - pbar.n)
-    print("Final interval:", Z)
+
+    if log is not None:
+        with open(log, "a") as f:
+            f.write(f"Number of intervals: {countitv}\n\n")
+            f.write(f"Final interval: {Z}\n")
+    # print("Final interval:", Z)
     return Z
 
+def run(final_model, mu_s, mu_t, K, device):
+
+    dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
+    # print("Data seed:", dataseed)
+    # ---- Generate synthetic data ----
+    try:
+        Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
+        Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
+        ns = Xs.shape[0]
+        nt = Xt.shape[0]
+        d = Xs.shape[1]
+        n = ns + nt
+
+        Xs_torch = torch.from_numpy(Xs).double().to(device)
+        Xt_torch = torch.from_numpy(Xt).double().to(device)
+
+        with torch.no_grad():
+            xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
+            xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+
+        X_origin = np.vstack((Xs, Xt))
+        X_transformed = np.vstack((xs_hat, xt_hat))
+
+        initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
+
+        Sigma = np.identity(n)
+        a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
+
+        # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
+        st = time.time()
+        final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20)
+        en = time.time()
+        # print(f"Time for parametric: {en-st:.4f} seconds")
+        selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+        return selective_p_value
+    except Exception as e:
+        print("Error during run:", e)
+        print("Data seed:", dataseed)
+        return None
 if __name__ == "__main__":
     ns, nt, d = 50, 20, 1
     K = 3
@@ -132,37 +177,35 @@ if __name__ == "__main__":
     )
 
     final_model.load_model("trained_model/20250907-112204")
+    
+    
+    import os
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count() 
 
+    os.environ["MKL_NUM_THREADS"] = "1" 
+    os.environ["NUMEXPR_NUM_THREADS"] = "1" 
+    os.environ["OMP_NUM_THREADS"] = "1"
 
-    dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
-    print("Data seed:",dataseed)
-    # ---- Generate synthetic data ----
-    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
-    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
-    ns = Xs.shape[0]
-    nt = Xt.shape[0]
-    d = Xs.shape[1]
-    n = ns + nt
+    list_p_values = []
+    compute_pvalue_with_args = partial(run, final_model, mu_s, mu_t, K, device)
+    iteration = 120
+    with multiprocessing.Pool(processes=num_cores) as pool:
+        list_p_values = pool.map(compute_pvalue_with_args, range(iteration))
+    print("\nSelective p-value:", list_p_values)
 
-    Xs_torch = torch.from_numpy(Xs).double().to(device)
-    Xt_torch = torch.from_numpy(Xt).double().to(device)
+    underalpha = sum(1 for p in list_p_values if p <= 0.05)
+    print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
-    with torch.no_grad():
-        xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
-        xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+    # Kiểm định thống kê
+    kstest = stats.kstest(list_p_values, stats.uniform(loc=0.0, scale=1.0).cdf)
 
-    X_origin = np.vstack((Xs, Xt))
-    X_transformed = np.vstack((xs_hat, xt_hat))
+    # Hiển thị histogram
+    plt.hist(list_p_values)
+    plt.savefig('logs/selective_inference_log/p_values_histogram.png')
+    with open('logs/selective_inference_log/p_values.txt', 'a') as f:
+        for p_value in list_p_values:
+            f.write(f"{p_value}\n")
 
-    initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
-
-    Sigma = np.identity(n)
-    a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
-
-    # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
-    st = time.time()
-    final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20)
-    en = time.time()
-    print(f"Time for parametric: {en-st:.4f} seconds")
-    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    print("\nSelective p-value:", selective_p_value)
+        f.write(f"\nFalse positive rate: {underalpha/len(list_p_values)} out of {len(list_p_values)}\n")
+        f.write(f"\nKS test statistic: {kstest.statistic}, p-value: {kstest.pvalue}\n")
