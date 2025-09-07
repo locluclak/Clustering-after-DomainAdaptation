@@ -4,6 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 import yaml
 import time
+from tqdm import tqdm
 
 import utils.construct_interval as construct_interval
 from utils.kmeans import kmeans
@@ -35,15 +36,83 @@ def test_statistic(X, n_clusters, Sigma, labels_all_obs, members_all_obs):
         "b": b,
         "zobs": z,
         "etaT_Sigma_eta": etaT_Sigma_eta.item(),
+        "c1": c1,
+        "c2": c2,
+        "cluster_c1_obs": idx_cluster_c1,
+        "cluster_c2_obs": idx_cluster_c2,
     }
 
+def overconditioning(model, X, a, b, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
+    # st = time.time()
+    # print(np.sum(a+b*z - X))
+    
+    interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
+    # print(np.sum(a_+b_*z - X_))
+    # st1 = time.time()
+    interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
+    # st15 = time.time()
+    # p, q, o = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
+    # st17 = time.time()
+    # interval_kmean2 = construct_interval.solveinterval(p,q,o)
+    # st2 = time.time()
+
+    # print("Interval by DA:", interval_da)
+    # print(f"Interval by kmean: {interval_kmean}")
+    # print(f"Interval by kmean2: {interval_kmean2}")
+    # print(f"Time constructing interval by DA: {st1 - st:.4f} seconds")
+    # print(f"Time constructing interval by KMean1: {st15 -st1:.4f} seconds")
+    # print(f"Time constructing interval by mid KMean2: {st17 -st15:.4f} seconds")
+    # print(f"Time constructing interval by KMean2: {st2 -st15:.4f} seconds")
+    final_interval = util.interval_intersection(interval_da, interval_kmean)
+    return final_interval
+
+def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20):
+    n, d = X.shape
+    z =  zmin
+    zmax = zmax
+    # countitv=0
+    Z = []
+    stepsize= 0.00001
+    # approximate total iterations
+    total_steps = int((zmax - zmin) / stepsize)
+
+    with tqdm(total=total_steps) as pbar:
+        while z < zmax:
+            z += stepsize
+            # print("z =",z)
+            Xdeltaz = (a + b*z).reshape(n, d)
+            Xdeltaz_torch = torch.from_numpy(Xdeltaz).double()#.cuda()
+            with torch.no_grad():
+                Xdeltaz_transformed = final_model.extract_feature(Xdeltaz_torch).cpu().numpy()
+
+            initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(Xdeltaz_transformed, n_clusters)
+            
+            # oc = util.interval_intersection(intervalFS,intervalDA)
+            oc = overconditioning(model, Xdeltaz, a, b, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs, z=z,X_=Xdeltaz_transformed)
+            idx_cluster_c1 = np.argwhere(labels_all_obs[-1] == c1).flatten()
+            idx_cluster_c2 = np.argwhere(labels_all_obs[-1] == c2).flatten()
+            # if sorted(M) == sorted(M_z):
+            if np.array_equal(c1_obs, idx_cluster_c1) and np.array_equal(c2_obs, idx_cluster_c2):
+                Z = util.interval_union(Z, oc)
+                # countitv+=1
+            # print("oc:", oc)
+            # print("z :", z)
+            z = oc[-1][1] # ruv
+            # en = time.time()
+            # with open(f"./experiments/time_{n}_{p}.txt", "a") as f:
+            #     f.write(f"{en-st}\n")
+            pbar.update(int((z - zmin) / stepsize) - pbar.n)
+    print("Final interval:", Z)
+    return Z
+
 if __name__ == "__main__":
-    ns, nt, d = 200, 100, 1
+    ns, nt, d = 50, 20, 1
     K = 3
     mu_s = np.full((ns, d), 2)
     mu_t = np.full((nt, d), 0)
-    modelt = time.time()
     # ---- Load WDGRL model ----
+    device = "cpu"
+
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
@@ -58,22 +127,21 @@ if __name__ == "__main__":
         alpha1=model_cfg["alpha1"],
         alpha2=model_cfg["alpha2"],
         seed=exp_cfg["model_random_state"],
+        device="cpu"
     )
 
-    final_model.load_model("trained_model/20250902-110038")
-    print("Time of load model", time.time() - modelt)
-    st = time.time()
+    final_model.load_model("trained_model/20250907-112204")
 
     # ---- Generate synthetic data ----
-    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1)
-    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1)
+    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=None)
+    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=None)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
     d = Xs.shape[1]
     n = ns + nt
 
-    Xs_torch = torch.from_numpy(Xs).float().cuda()
-    Xt_torch = torch.from_numpy(Xt).float().cuda()
+    Xs_torch = torch.from_numpy(Xs).double().to(device)
+    Xt_torch = torch.from_numpy(Xt).double().to(device)
 
     with torch.no_grad():
         xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
@@ -85,18 +153,12 @@ if __name__ == "__main__":
     initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
 
     Sigma = np.identity(n)
-    a, b, etaTX, etaT_Sigma_eta = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
-    print("Time of data preparation:", time.time() - st)
+    a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
 
-    dast = time.time()
-    interval_da, a_, b_ = construct_interval.ReLUcondition(final_model.encoder, a, b, X_origin)
-    print("Time of construct interval_da:", time.time() - dast)
-    kmeant = time.time()
-    interval_kmean = construct_interval.KMeancondition(n, K, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
-    print("Time of construct interval_kmean:", time.time() - kmeant)
-
-    pvaluet = time.time()
-    final_interval = util.interval_intersection(interval_da, interval_kmean)
+    # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
+    st = time.time()
+    final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20)
+    en = time.time()
+    print(f"Time for parametric: {en-st:.4f} seconds")
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    print("Time of computing pvalue:", time.time() - pvaluet)
     print("\nSelective p-value:", selective_p_value)

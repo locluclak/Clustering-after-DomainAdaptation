@@ -81,8 +81,8 @@ class WDGRL():
         if seed is not None:
             set_seed(seed)
 
-        self.encoder = Encoder(input_dim, encoder_hidden_dims).to(self.device)
-        self.critic = Critic(encoder_hidden_dims[-1], critic_hidden_dims).to(self.device)
+        self.encoder = Encoder(input_dim, encoder_hidden_dims).to(self.device).double()
+        self.critic = Critic(encoder_hidden_dims[-1], critic_hidden_dims).to(self.device).double()
         self.encoder_optimizer = torch.optim.Adam(self.encoder.parameters(), lr=alpha2)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=alpha1)
 

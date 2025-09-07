@@ -27,8 +27,8 @@ def train_model(
     # Xt = scaler.transform(Xt)
 
     # ==== Torch datasets ====
-    xs = torch.from_numpy(Xs).float()
-    xt = torch.from_numpy(Xt).float()
+    xs = torch.from_numpy(Xs).double()
+    xt = torch.from_numpy(Xt).double()
 
     source_dataset = TensorDataset(xs)
     target_dataset = TensorDataset(xt)
@@ -101,18 +101,18 @@ def train_model(
     xt_hat = final_model.extract_feature(xt.cuda())
     xs_hat = xs_hat.cpu().numpy()
     xt_hat = xt_hat.cpu().numpy()
-    print("Xs",np.mean(xs_hat, axis=1))
-    print("Xt",np.mean(xt_hat, axis=1))
+    # print("Xs",np.mean(xs_hat, axis=1))
+    # print("Xt",np.mean(xt_hat, axis=1))
     gendata.visualby_tsne(Xs, Xt, path=os.path.join(saved_model_dir, "train_tsne.png"))
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 2000, 100, 1
+    ns, nt, d = 1000, 100, 1
     # n_clusters = 2
     mu_s = np.full((ns,d),2)
     mu_t = np.full((nt,d),0)
-    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1)
-    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1)
+    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=42)
+    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=42)
     wdgrl = train_model(Xs, Xt)
     # with open("config.yaml", "r") as f:
     #     config = yaml.safe_load(f)
@@ -137,8 +137,8 @@ if __name__ == "__main__":
     # nt_test = Xt_test.shape[0]
     # wdgrl = train_model(Xs_train, Xt_train)
     
-    # Xs_test_torch = torch.from_numpy(Xs_test).float()
-    # Xt_test_torch = torch.from_numpy(Xt_test).float()
+    # Xs_test_torch = torch.from_numpy(Xs_test).double()
+    # Xt_test_torch = torch.from_numpy(Xt_test).double()
 
 
 

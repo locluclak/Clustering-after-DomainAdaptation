@@ -91,7 +91,7 @@ def solve_quadratic_inequality(a, b, c):
         c = 0
     if a == 0:
         if b > 0:
-            return [(-np.inf, np.around(-c / b, 8))]
+            return [(-np.inf, -c / b)]
         elif b == 0:
             if c <= 0:
                 return [(-np.inf, np.inf)]
@@ -99,7 +99,7 @@ def solve_quadratic_inequality(a, b, c):
                 print('Error bx + c')
                 return 
         else:
-            return [(np.around(-c / b, 8), np.inf)]
+            return [(-c / b, np.inf)]
 
     delta = b*b - 4*a*c
     if delta < 0:
@@ -111,8 +111,102 @@ def solve_quadratic_inequality(a, b, c):
     x1 = (- b - np.sqrt(delta)) / (2.0*a)
     x2 = (- b + np.sqrt(delta)) / (2.0*a)
 
-    x1 = np.around(x1, 8)
-    x2 = np.around(x2, 8)
+    # x1 = np.around(x1, 8)
+    # x2 = np.around(x2, 8)
     if a < 0:
         return [(-np.inf, x2),(x1, np.inf)]
     return [(x1,x2)]
+
+
+# numba_version.py
+from numba import njit
+import math
+from math import inf
+
+@njit
+def _solve_quadratic_core(a, b, c):
+    """
+    Numba-jittable core that returns a small result code and up to two endpoints.
+    Codes:
+      0 -> all real numbers (return (-inf, +inf))
+      1 -> empty set (no solution)
+      2 -> single closed interval [v1, v2]
+      3 -> (-inf, v1]   (linear case b > 0)
+      4 -> [v1, +inf)   (linear case b < 0)
+      5 -> two intervals (-inf, v1] U [v2, +inf)  (a < 0, delta >= 0)
+    """
+    tol = 1e-10
+    if abs(a) < tol:
+        a = 0.0
+    if abs(b) < tol:
+        b = 0.0
+    if abs(c) < tol:
+        c = 0.0
+
+    # Linear or constant cases
+    if a == 0.0:
+        if b == 0.0:
+            if c <= 0.0:
+                return (0, 0.0, 0.0)  # all reals
+            else:
+                return (1, 0.0, 0.0)  # no solution
+        else:
+            # bx + c <= 0  ->  x <= -c/b if b>0, else x >= -c/b
+            val = -c / b
+            if b > 0.0:
+                return (3, val, 0.0)
+            else:
+                return (4, val, 0.0)
+
+    # Quadratic case
+    delta = b * b - 4.0 * a * c
+    if delta < 0.0:
+        if a < 0.0:
+            return (0, 0.0, 0.0)  # always <= 0
+        else:
+            return (1, 0.0, 0.0)  # always > 0 -> no solution
+
+    sqrt_delta = math.sqrt(delta)
+    r1 = (-b - sqrt_delta) / (2.0 * a)
+    r2 = (-b + sqrt_delta) / (2.0 * a)
+    left = r1 if r1 <= r2 else r2
+    right = r2 if r2 >= r1 else r1
+
+    if a > 0.0:
+        # Upward parabola -> between roots satisfies <= 0
+        return (2, left, right)
+    else:
+        # Downward parabola -> outside roots satisfies <= 0
+        return (5, left, right)
+
+
+def solve_quadratic_inequality_numba(a, b, c, round_digits=8):
+    """
+    Wrapper that calls the numba core and returns list-of-interval tuples.
+    Each tuple is (start, end) where start or end may be math.inf or -math.inf.
+    Endpoints are rounded to `round_digits`.
+    """
+    code, v1, v2 = _solve_quadratic_core(float(a), float(b), float(c))
+    # small local rounding helper
+    def r(x):
+        # keep infinities as-is
+        if math.isinf(x):
+            return x
+        return round(x, round_digits)
+
+    if code == 0:
+        return [(-inf, inf)]
+    elif code == 1:
+        return []  # empty solution
+    elif code == 2:
+        return [(r(v1), r(v2))]
+    elif code == 3:
+        return [(-inf, r(v1))]
+    elif code == 4:
+        return [(r(v1), inf)]
+    elif code == 5:
+        return [(-inf, r(v1)), (r(v2), inf)]
+    else:
+        # should not happen
+        print("Error to find interval. ")
+        return []
