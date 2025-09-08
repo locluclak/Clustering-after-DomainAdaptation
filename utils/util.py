@@ -5,12 +5,12 @@ mp.dps = 500
 def construct_p_q_t(a, b, A = None):
     if A is None:
         p = np.dot(b.T, b)
-        q = np.dot(b.T, a) + np.dot(a.T, b)
+        q = 2 * np.dot(b.T, a)
         t = np.dot(a.T, a)
         return p, q, t
     
     p = np.dot(b.T, np.dot(A, b))
-    q = np.dot(b.T, np.dot(A, a)) + np.dot(a.T, np.dot(A, b))
+    q = 2 * np.dot(b.T, np.dot(A, a))
     t = np.dot(a.T, np.dot(A, a))
     return p, q, t
 

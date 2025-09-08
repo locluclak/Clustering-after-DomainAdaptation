@@ -14,6 +14,34 @@ import utils.util as util
 import gendata
 from models.wdgrl import WDGRL
 
+
+ns, nt, d = 50, 20, 1
+K = 3
+mu_s = np.full((ns, d), 2)
+mu_t = np.full((nt, d), 0)
+device = "cpu"
+
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+exp_cfg = config["experiment"]
+model_cfg = config["model"]
+
+seed = exp_cfg["seed"]
+final_model = WDGRL(
+    input_dim=d,
+    encoder_hidden_dims=model_cfg["encoder_hidden_dims"],
+    critic_hidden_dims=model_cfg["critic_hidden_dims"],
+    alpha1=model_cfg["alpha1"],
+    alpha2=model_cfg["alpha2"],
+    seed=exp_cfg["model_random_state"],
+    device=device,
+)
+
+final_model.load_model("trained_model/20250907-112204")
+
+
+
 def test_statistic(X, n_clusters, Sigma, labels_all_obs, members_all_obs):
     c1, c2 = np.random.choice(n_clusters, 2, replace=False)
 
@@ -68,7 +96,7 @@ def overconditioning(model, X, a, b, n_clusters, initial_centroids_obs, labels_a
     final_interval = util.interval_intersection(interval_da, interval_kmean)
     return final_interval
 
-def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None):
+def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None, seed=None):
     n, d = X.shape
     z =  zmin
     zmax = zmax
@@ -78,7 +106,7 @@ def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, z
     # approximate total iterations
     total_steps = int((zmax - zmin) / stepsize)
 
-    with tqdm(total=total_steps) as pbar:
+    with tqdm(total=total_steps, desc=f"Seed {seed}") as pbar:
         while z < zmax:
             z += stepsize
             # print("z =",z)
@@ -112,8 +140,8 @@ def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, z
     # print("Final interval:", Z)
     return Z
 
-def run(final_model, mu_s, mu_t, K, device):
-
+def run(mu_s, mu_t, K, device,_=None):
+    global final_model
     dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
@@ -141,59 +169,42 @@ def run(final_model, mu_s, mu_t, K, device):
         a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
 
         # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
-        st = time.time()
-        final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20)
-        en = time.time()
+        # st = time.time()
+        final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=dataseed)
+        # en = time.time()
         # print(f"Time for parametric: {en-st:.4f} seconds")
         selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+        with open('logs/selective_inference_log/p_values.txt', 'a') as f:
+            f.write(f"{selective_p_value}\n")
         return selective_p_value
     except Exception as e:
         print("Error during run:", e)
         print("Data seed:", dataseed)
         return None
 if __name__ == "__main__":
-    ns, nt, d = 50, 20, 1
-    K = 3
-    mu_s = np.full((ns, d), 2)
-    mu_t = np.full((nt, d), 0)
+
     # ---- Load WDGRL model ----
-    device = "cpu"
 
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
-
-    exp_cfg = config["experiment"]
-    model_cfg = config["model"]
-
-    seed = exp_cfg["seed"]
-    final_model = WDGRL(
-        input_dim=d,
-        encoder_hidden_dims=model_cfg["encoder_hidden_dims"],
-        critic_hidden_dims=model_cfg["critic_hidden_dims"],
-        alpha1=model_cfg["alpha1"],
-        alpha2=model_cfg["alpha2"],
-        seed=exp_cfg["model_random_state"],
-        device=device,
-    )
-
-    final_model.load_model("trained_model/20250907-112204")
     
-    
-    import os
-    import multiprocessing
-    num_cores = multiprocessing.cpu_count() 
-
-    os.environ["MKL_NUM_THREADS"] = "1" 
-    os.environ["NUMEXPR_NUM_THREADS"] = "1" 
-    os.environ["OMP_NUM_THREADS"] = "1"
+    # import os
+    # import multiprocessing
+    # num_cores = multiprocessing.cpu_count() 
+    # print(f"Having {num_cores} cores")
+    # os.environ["MKL_NUM_THREADS"] = "1" 
+    # os.environ["NUMEXPR_NUM_THREADS"] = "1" 
+    # os.environ["OMP_NUM_THREADS"] = "1"
 
     list_p_values = []
-    compute_pvalue_with_args = partial(run, final_model, mu_s, mu_t, K, device)
-    iteration = 120
-    with multiprocessing.Pool(processes=num_cores) as pool:
-        list_p_values = pool.map(compute_pvalue_with_args, range(iteration))
-    print("\nSelective p-value:", list_p_values)
+    iteration = 30
 
+    # compute_pvalue_with_args = partial(run, mu_s, mu_t, K, device)
+    # with multiprocessing.Pool(processes=12) as pool:
+    #     list_p_values = pool.map(compute_pvalue_with_args, range(iteration))
+    # print("\nSelective p-value:", list_p_values)
+    for i in range(iteration):
+        print(f"\n--- Iteration {i+1}/{iteration} ---")
+        p_value = run(mu_s, mu_t, K, device)
+        list_p_values.append(p_value)
     underalpha = sum(1 for p in list_p_values if p <= 0.05)
     print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
@@ -204,8 +215,6 @@ if __name__ == "__main__":
     plt.hist(list_p_values)
     plt.savefig('logs/selective_inference_log/p_values_histogram.png')
     with open('logs/selective_inference_log/p_values.txt', 'a') as f:
-        for p_value in list_p_values:
-            f.write(f"{p_value}\n")
 
         f.write(f"\nFalse positive rate: {underalpha/len(list_p_values)} out of {len(list_p_values)}\n")
         f.write(f"\nKS test statistic: {kstest.statistic}, p-value: {kstest.pvalue}\n")
