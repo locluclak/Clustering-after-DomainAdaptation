@@ -8,6 +8,9 @@ from tqdm import tqdm
 import random
 from functools import partial
 
+from gpu_accelerate import operations, conditioning
+
+
 import utils.construct_interval as construct_interval
 from utils.kmeans import kmeans
 import utils.util as util
@@ -76,11 +79,15 @@ def test_statistic_multidim(X, n_clusters, Sigma, labels_all_obs, members_all_ob
     n,d=X.shape
 
     return
-def overconditioning(model, X, a, b, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
+def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
     # st = time.time()
     # print(np.sum(a+b*z - X))
-    
-    interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
+    if device == "cpu":
+        interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
+    else:        
+        interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
+        interval_da = [interval_da]
+    # print("DA:",interval_da)
     # print(np.sum(a_+b_*z - X_))
     # st1 = time.time()
     interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
@@ -100,32 +107,38 @@ def overconditioning(model, X, a, b, n_clusters, initial_centroids_obs, labels_a
     final_interval = util.interval_intersection(interval_da, interval_kmean)
     return final_interval
 
-def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None, seed=None):
+
+def parametric(model, X, ns, nt, a, b,np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None, seed=None):
+    global device
     n, d = X.shape
     z =  zmin
     zmax = zmax
     countitv=0
     Z = []
     stepsize= 0.00001
-    # approximate total iterations
-    total_steps = int((zmax - zmin) / stepsize)
 
+
+
+
+
+
+    total_steps = int((zmax - zmin) / stepsize)
     with tqdm(total=total_steps, desc=f"Seed {seed}") as pbar:
         while z < zmax:
             z += stepsize
             # print("z =",z)
             Xdeltaz = (a + b*z).reshape(n, d)
-            Xdeltaz_torch = torch.from_numpy(Xdeltaz).double()#.cuda()
+            Xdeltaz_torch = torch.from_numpy(Xdeltaz).double().to(device)
             with torch.no_grad():
-                Xdeltaz_transformed = final_model.extract_feature(Xdeltaz_torch).cpu().numpy()
-
+                # Xdeltaz_transformed = final_model.extract_feature(Xdeltaz_torch).cpu().numpy()
+                Xdeltaz_transformed = model.extract_feature(Xdeltaz_torch).cpu().numpy()
             initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(Xdeltaz_transformed, n_clusters)
             
             # oc = util.interval_intersection(intervalFS,intervalDA)
-            oc = overconditioning(model, Xdeltaz, a, b, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs, z=z,X_=Xdeltaz_transformed)
-            idx_cluster_c1 = np.argwhere(labels_all_obs[-1] == c1).flatten()
-            idx_cluster_c2 = np.argwhere(labels_all_obs[-1] == c2).flatten()
-            # if sorted(M) == sorted(M_z):
+            oc = overconditioning(model, Xdeltaz, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs, z=z,X_=Xdeltaz_transformed)
+            idx_cluster_c1 = np.argwhere(labels_all_obs[-1][ns:] == c1).flatten()
+            idx_cluster_c2 = np.argwhere(labels_all_obs[-1][ns:] == c2).flatten()
+
             if np.array_equal(c1_obs, idx_cluster_c1) and np.array_equal(c2_obs, idx_cluster_c2):
                 Z = util.interval_union(Z, oc)
                 countitv+=1
@@ -146,12 +159,12 @@ def parametric(model, X, a, b, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, z
 
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    # dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
+    dataseed =2 # random.randint(0, 2**32 - 1)  # 32-bit seed
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     try:
-        Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=None)
-        Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=None)
+        Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
+        Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
         ns = Xs.shape[0]
         nt = Xt.shape[0]
         d = Xs.shape[1]
@@ -159,7 +172,7 @@ def run(mu_s, mu_t, K, device,_=None):
 
         Xs_torch = torch.from_numpy(Xs).double().to(device)
         Xt_torch = torch.from_numpy(Xt).double().to(device)
-        print(Xt_torch.device)  
+
         with torch.no_grad():
             xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
             xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
@@ -168,14 +181,15 @@ def run(mu_s, mu_t, K, device,_=None):
         X_transformed = np.vstack((xs_hat, xt_hat))
 
         initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
-        print("Label all obs", labels_all_obs)
-        print("member all obs", labels_all_obs)
+
         Sigma = np.identity(n)
         a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, ns, nt, K, Sigma, labels_all_obs, members_all_obs).values()
-
-        final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
+        np_wdgrl = operations.convert_network_to_numpy(final_model.encoder)
+        final_model.encoder = final_model.encoder.to(device)
+        print(final_model.device)
+        # final_interval = overconditioning(final_model, X_origin, a, b, np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs)
         # st = time.time()
-        # final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
+        final_interval = parametric(final_model, X_origin, ns, nt, a, b,np_wdgrl, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
         # en = time.time()
         # print(f"Time for parametric: {en-st:.4f} seconds")
         selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)

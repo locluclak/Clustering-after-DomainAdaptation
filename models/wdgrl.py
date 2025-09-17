@@ -252,15 +252,15 @@ class WDGRL():
         self, 
         x: torch.Tensor
         ) -> torch.Tensor:
-        
+
         self.encoder.eval()
-        return self.encoder(x)
+        return self.encoder(x.to(self.device))
     
     @torch.no_grad()
     def criticize(self, x: torch.Tensor) -> float:
         self.encoder.eval()
         self.critic.eval()
-        return self.critic(self.encoder(x)).mean().item()
+        return self.critic(self.encoder(x.to(self.device))).mean().item()
     
     
     def save_model(self, folder_path: str):

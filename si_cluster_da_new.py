@@ -131,10 +131,10 @@ if __name__ == "__main__":
         device=device,
     )
 
-    final_model.load_model("trained_model/20250907-112204")
+    final_model.load_model("trained_model/20250910-101421")
 
 
-    dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
+    dataseed = None#random.randint(0, 2**32 - 1)  # 32-bit seed
     print("Data seed:",dataseed)
     # ---- Generate synthetic data ----
     Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
@@ -158,10 +158,10 @@ if __name__ == "__main__":
 
     Sigma = np.identity(n)
     a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs = test_statistic(X_origin, K, Sigma, labels_all_obs, members_all_obs).values()
-
-    # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
-    st = time.time()
     final_interval = parametric(final_model, X_origin, a, b, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20)
+
+    st = time.time()
+    # final_interval = overconditioning(final_model, X_origin, a, b, K, initial_centroids_obs, labels_all_obs, members_all_obs)
     en = time.time()
     print(f"Time for parametric: {en-st:.4f} seconds")
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)

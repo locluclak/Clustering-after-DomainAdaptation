@@ -29,4 +29,4 @@ def kmeans(X, k, max_iters=80, tol=1e-3, seed=42):
             break
         centroids = new_centroids
 
-    return np.array(initial_indices), np.array(cluster_labels_all), np.array(cluster_members_all)
+    return initial_indices, cluster_labels_all, cluster_members_all
