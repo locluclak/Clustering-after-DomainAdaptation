@@ -103,11 +103,13 @@ def train_model(
     xt_hat = xt_hat.cpu().numpy()
     # print("Xs",np.mean(xs_hat, axis=1))
     # print("Xt",np.mean(xt_hat, axis=1))
+    with open(os.path.join(saved_model_dir, "model_config.yaml"), "w") as f:  
+        yaml.safe_dump(config, f) 
     gendata.visualby_tsne(Xs, Xt, path=os.path.join(saved_model_dir, "train_tsne.png"))
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 1000, 100, 1
+    ns, nt, d = 2000, 300, 30
     # n_clusters = 2
     mu_s = np.full((ns,d),2)
     mu_t = np.full((nt,d),0)
