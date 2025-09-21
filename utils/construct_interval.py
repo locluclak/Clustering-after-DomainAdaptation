@@ -161,9 +161,10 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all,z=0):
 
 def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
     trunc_interval = [(-np.inf, np.inf)]
-    # print("\n"*20)
-    # print("__________________________________________________________________")
-    labels_all = np.asarray(labels_all)
+
+    # A, B shape n x d
+    
+    labels_all = np.asarray(labels_all) # shape T x n
     T = labels_all.shape[0]
 
     labels_for_one_hot = labels_all[:-1, :]
@@ -185,25 +186,16 @@ def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0)
 
     LCA = one_hot @ A
     LCB = one_hot @ B
-    
-    # print("z:",z)
+
     NCo = np.sum(LCA**2, axis=-1)
     NCq = 2.0 * np.sum(LCA*LCB, axis=-1)
     NCp = np.sum(LCB**2, axis=-1)
-    # print("Centroids",(LCA + LCB*z)[0][0])
-    # print("NC ", NCo + NCq*z + NCp*z*z)
 
     for k in range(K):
         mask_k = (labels_all  == k)
         mask_kdim = mask_k[..., None]
         XA_k = A*mask_kdim
         XB_k = B*mask_kdim
-        # print(mask_kdim.shape)
-        # print(f"mask {k}")
-        # for _ in range(T):
-        #     print(f"| step {_} : total label {np.sum(mask_kdim[_])}", end=" ")
-        # print()
-        # print(f"cluster {k} ",(XA_k+XB_k*z)[0])
 
         LCA_k = LCA[:, k, :]
         LCB_k = LCB[:, k, :]
@@ -228,11 +220,78 @@ def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0)
             O = O[mask_k == True]
             trunc_interval = util.interval_intersection(trunc_interval,solveinterval(P, Q, O, z))
 
-    # print("KMEAN2", trunc_interval)
     trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
-
     return trunc_interval
 
+
+def KMeancondition3(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
+    trunc_interval = [(-np.inf, np.inf)]
+    labels_all = np.asarray(labels_all)  # Shape: T x n
+    T = labels_all.shape[0]
+
+    # One-hot encoding for labels (T-1 x K x n)
+    labels_for_one_hot = labels_all[:-1]
+    oh = np.zeros((T-1, K, n))
+    oh[np.arange(T-1)[:, None], labels_for_one_hot, np.arange(n)] = 1.0
+    sums = oh.sum(axis=2, keepdims=True)
+    sums[sums == 0] = 1.0
+    oh /= sums
+
+    # Initial centroids one-hot (1 x K x n)
+    mat = np.zeros((K, n))
+    mat[np.arange(K), initial_centroids] = 1.0
+    one_hot = np.concatenate([mat[None], oh], axis=0)
+
+    # Compute LCA, LCB (T x K x d)
+    LCA = one_hot @ A
+    LCB = one_hot @ B
+
+    # Compute NCo, NCq, NCp (T x K)
+    NCo = np.sum(LCA**2, axis=-1)
+    NCq = 2.0 * np.sum(LCA * LCB, axis=-1)
+    NCp = np.sum(LCB**2, axis=-1)
+
+    # Mask and XA, XB
+    mask = (labels_all[..., None] == np.arange(K))  # T x n x K
+    XA = A[None, :, None, :] * mask[..., None]  # T x n x K x d
+    XB = B[None, :, None, :] * mask[..., None]  # T x n x K x d
+
+    # Differences
+    LCA_diff = LCA[:, :, None, :] - LCA[:, None, :, :]  # T x K x K x d
+    LCB_diff = LCB[:, :, None, :] - LCB[:, None, :, :]  # T x K x K x d
+
+    # Dot products
+    XBdotLCB = np.einsum('tnkd,tkjd->tnkj', XB, LCB_diff)  # T x n x K x K
+    XBdotLCA = np.einsum('tnkd,tkjd->tnkj', XB, LCA_diff)
+    XAdotLCB = np.einsum('tnkd,tkjd->tnkj', XA, LCB_diff)
+    XBdotLCA_XAdotLCB = XBdotLCA + XAdotLCB
+    XAdotLCA = np.einsum('tnkd,tkjd->tnkj', XA, LCA_diff)
+
+    # P, Q, O
+    diff_NCp = NCp[:, :, None] - NCp[:, None, :]  # T x K x K
+    P = diff_NCp[:, None, :, :] - 2 * XBdotLCB  # T x n x K x K
+
+    diff_NCq = NCq[:, :, None] - NCq[:, None, :]
+    Q = diff_NCq[:, None, :, :] - 2 * XBdotLCA_XAdotLCB
+
+    diff_NCo = NCo[:, :, None] - NCo[:, None, :]
+    O = diff_NCo[:, None, :, :] - 2 * XAdotLCA
+
+    # Valid mask for k != j
+    eye = np.eye(K)[None, None, :, :]
+    mask_valid = mask[:, :, :, None] * (1 - eye)  # T x n x K x K
+
+    # Flatten valid entries
+    indices = np.nonzero(mask_valid)
+    P_flat = P[indices]
+    Q_flat = Q[indices]
+    O_flat = O[indices]
+
+    # Intersect intervals
+    new_intervals = solveinterval(P_flat, Q_flat, O_flat, z)
+    trunc_interval = util.interval_intersection(trunc_interval, new_intervals)
+
+    return [(float(a), float(b)) for (a, b) in trunc_interval]
 def solveinterval(P: np.ndarray, Q: np.ndarray, O: np.ndarray, z):
     """
     P, Q, O: 1-D NumPy arrays of the same length.
@@ -248,3 +307,4 @@ def solveinterval(P: np.ndarray, Q: np.ndarray, O: np.ndarray, z):
         trunc_interval = util.interval_intersection(trunc_interval, res)
     # print("----------------- interval",trunc_interval)
     return trunc_interval
+

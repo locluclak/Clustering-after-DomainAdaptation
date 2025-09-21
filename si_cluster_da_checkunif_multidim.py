@@ -113,8 +113,12 @@ def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs
     # # print("interval kmean ok")
     # st15 = time.time()
     interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+    # st16 = time.time()
+    # interval_kmean = construct_interval.KMeancondition3(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # p, q, o = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
     # st17 = time.time()
+    # print("kmean2",st17-st16)
+    # print("kmean3",st16-st15)
     # interval_kmean2 = construct_interval.solveinterval(p,q,o)
     # st2 = time.time()
 
