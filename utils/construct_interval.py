@@ -67,7 +67,7 @@ def ReLUcondition(model, a, b, X):
 
 
 
-def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all):
+def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all,z=0):
     trunc_interval1 = [(-np.inf, np.inf)]
     a = np.asarray(a)
     b = np.asarray(b)
@@ -93,11 +93,16 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all):
             p2, q2, o2 = util.construct_p_q_t(u2, v2)
 
             p, q, o = (p1 - p2).item(), (q1 - q2).item(), (o1 - o2).item()
+            # print("pqo")
+            print("pqo", f"{p:.5f}", f"{q:.5f}", f"{o:.5f}")
+            # print(f"data {i}, cluster {k}, pzz qz o {(p*z*z + q*z + o):.5f}")
             res = util.solve_quadratic_inequality(p, q, o)
-            trunc_interval1 = util.interval_intersection(trunc_interval1, res)
-    # print("Initial K-means truncation interval:", trunc_interval1)
-    trunc_interval2 = [(-np.inf, np.inf)]
+            print("subitv",res)
 
+            trunc_interval1 = util.interval_intersection(trunc_interval1, res)
+            # print("Initial K-means truncation interval:", trunc_interval1)
+    trunc_interval2 = [(-np.inf, np.inf)]
+    print("______________________________________________________")
     for t in range(1, len(labels_all)):
         for i in range(n):
             e_i = np.zeros((1,n))
@@ -137,109 +142,109 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all):
                 p4, q4, o4 = util.construct_p_q_t(u4, v4)
 
                 p_comma, q_comma, o_comma = (p3 - p4).item(), (q3 - q4).item(), (o3 - o4).item()
+                print("pqo", f"{p_comma:.5f}", f"{q_comma:.5f}", f"{o_comma:.5f}")
+                # print(f"step {t}, index {i}, k {k}, pzz qz o {p_comma*z*z + q_comma*z + o_comma:.5f}")
                 res = util.solve_quadratic_inequality(p_comma, q_comma, o_comma)
                 # if t == 4 and i ==22 and k==1:
                     # print(f"{t}, {i}, {k}.p_comma, q_comma, o_comma:", f"{p_comma:.8f}", f"{q_comma:.8f}", f"{o_comma:.8f}")
                     # print("res:", res)
+                print("subitv",res)
                 trunc_interval2 = util.interval_intersection(trunc_interval2, res)
     #     print(f"Iteration {t} K-means truncation interval:", trunc_interval2)
     # print("Subsequent K-means truncation interval:", trunc_interval2)
     trunc_interval = util.interval_intersection(trunc_interval1, trunc_interval2)
     trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
+    print("\n\n KMEAN", trunc_interval)
+
     return trunc_interval
 
 
-def KMeancondition2(n, K, a, b, initial_centroids, labels_all, members_all):
+def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
     trunc_interval = [(-np.inf, np.inf)]
-    a = np.asarray(a)
-    b = np.asarray(b)
+    # print("\n"*20)
+    # print("__________________________________________________________________")
+    labels_all = np.asarray(labels_all)
+    T = labels_all.shape[0]
 
-    P,Q,O = [],[],[]
-    initial_centroids_labels = labels_all[0]
+    labels_for_one_hot = labels_all[:-1, :]
 
-    for i in range(n):
-        current_label = initial_centroids_labels[i]
-        if i == initial_centroids[current_label]:
-            continue
 
-        u1 = (a[i] - a[initial_centroids[current_label]]).reshape(-1, 1)
-        v1 = (b[i] - b[initial_centroids[current_label]]).reshape(-1, 1)
-        
-        p1 = np.dot(v1.T, v1)
-        q1 = np.dot(v1.T, u1) + np.dot(u1.T, v1)
-        o1 = np.dot(u1.T, u1)
+    oh = np.zeros((T-1, K, n), dtype=float)
+    rows = np.arange(n)[None, :]
+    batches = np.arange(T-1)[:, None]
+    oh[batches, labels_for_one_hot, rows] = 1.0
 
-        for k in range(K):
-            if k == current_label:
+    sums = oh.sum(axis=2, keepdims=True)
+    sums[sums == 0] = 1.0
+    oh = oh / sums
+    
+    
+    mat = np.zeros((K, n), dtype=float)
+    mat[np.arange(K), initial_centroids] = 1.0
+    one_hot = np.vstack([mat[None, ...], oh])
+
+    LCA = one_hot @ A
+    LCB = one_hot @ B
+    
+    # print("z:",z)
+    NCo = np.sum(LCA**2, axis=-1)
+    NCq = 2.0 * np.sum(LCA*LCB, axis=-1)
+    NCp = np.sum(LCB**2, axis=-1)
+    # print("Centroids",(LCA + LCB*z)[0][0])
+    # print("NC ", NCo + NCq*z + NCp*z*z)
+
+    for k in range(K):
+        mask_k = (labels_all  == k)
+        mask_kdim = mask_k[..., None]
+        XA_k = A*mask_kdim
+        XB_k = B*mask_kdim
+        # print(mask_kdim.shape)
+        # print(f"mask {k}")
+        # for _ in range(T):
+        #     print(f"| step {_} : total label {np.sum(mask_kdim[_])}", end=" ")
+        # print()
+        # print(f"cluster {k} ",(XA_k+XB_k*z)[0])
+
+        LCA_k = LCA[:, k, :]
+        LCB_k = LCB[:, k, :]
+
+        for k_ in range(K):
+            if k_ == k:
                 continue
+            LCA_k_ = LCA[:, k_, :]
+            LCB_k_ = LCB[:, k_, :]
+            LCA_kk = LCA_k - LCA_k_
+            LCB_kk = LCB_k - LCB_k_
+            XBdotLCB = np.einsum('tnd,td->tn', XB_k, LCB_kk)
+            XBdotLCAplusXAdotLCB = np.einsum('tnd,td->tn', XB_k, LCA_kk)+np.einsum('tnd,td->tn', XA_k, LCB_kk)
+            XAdotLCA = np.einsum('tnd,td->tn', XA_k, LCA_kk)
 
-            u2 = (a[i] - a[initial_centroids[k]]).reshape(-1, 1)
-            v2 = (b[i] - b[initial_centroids[k]]).reshape(-1, 1)
-            p2 = np.dot(v2.T, v2)
-            q2 = np.dot(v2.T, u2) + np.dot(u2.T, v2)
-            o2 = np.dot(u2.T, u2)
 
-            p, q, o = (p1 - p2).item(), (q1 - q2).item(), (o1 - o2).item()
-            P.append(p)
-            Q.append(q)
-            O.append(o)
+            P = (NCp[:, k] - NCp[:, k_])[:, None] - 2*XBdotLCB
+            Q = (NCq[:, k] - NCq[:, k_])[:, None] - 2*XBdotLCAplusXAdotLCB
+            O = (NCo[:, k] - NCo[:, k_])[:, None] - 2*XAdotLCA
+            P = P[mask_k == True]
+            Q = Q[mask_k == True]
+            O = O[mask_k == True]
+            trunc_interval = util.interval_intersection(trunc_interval,solveinterval(P, Q, O, z))
 
-    for t in range(1, len(labels_all)):
-        for i in range(n):
-            e_i = np.zeros((1,n))
-            e_i[0][i] = 1
-            
-            gamma_i = np.zeros((1,n))
-            label_i = labels_all[t][i] 
-            
-            C_i_t_minus = list(members_all[t-1][label_i]) 
-            if len(C_i_t_minus) == 0:
-                    continue
-    
-            gamma_i[:,C_i_t_minus] = 1
-        
-            E_temp_1 = e_i - gamma_i/len(C_i_t_minus)
-            u3 = E_temp_1.dot(a).reshape(-1,1)
-            v3 = E_temp_1.dot(b).reshape(-1,1)
+    # print("KMEAN2", trunc_interval)
+    trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
 
-            p3 = np.dot(v3.T, v3)
-            q3 = np.dot(v3.T, u3) + np.dot(u3.T, v3)
-            o3 = np.dot(u3.T, u3)
+    return trunc_interval
 
-            for k in range(K):
-                e_i = np.zeros((1,n))
-                e_i[0][i] = 1
-                
-                gamma_k = np.zeros((1,n))         
-                C_k_t_minus = list(members_all[t-1][k])
-                if len(C_k_t_minus) == 0:
-                    continue
-    
-                if k == label_i:
-                    continue
-                gamma_k[:,C_k_t_minus] = 1
-                
-            
-                E_temp_2 = e_i - gamma_k/len(C_k_t_minus)
-                u4 = E_temp_2.dot(a).reshape(-1,1)
-                v4 = E_temp_2.dot(b).reshape(-1,1)
-
-                p4 = np.dot(v4.T, v4)
-                q4 = np.dot(v4.T, u4) + np.dot(u4.T, v4)
-                o4 = np.dot(u4.T, u4)
-
-                p_comma, q_comma, o_comma = (p3 - p4).item(), (q3 - q4).item(), (o3 - o4).item()
-                P.append(p_comma)
-                Q.append(q_comma)
-                O.append(o_comma)
-
-    return np.array(P), np.array(Q), np.array(O)
-
-def solveinterval(P, Q, O):
+def solveinterval(P: np.ndarray, Q: np.ndarray, O: np.ndarray, z):
+    """
+    P, Q, O: 1-D NumPy arrays of the same length.
+    Returns: list of (low, high) tuples after intersecting intervals.
+    """
     trunc_interval = [(-np.inf, np.inf)]
-    for i in range(len(P)):
-        p, q, o = P[i], Q[i], O[i]
-        res = util.solve_quadratic_inequality_numba(p, q, o)
+    
+    # vectorized iteration with NumPy
+    for p, q, o in zip(P, Q, O):
+        # print("tensor pqo", f"{p:.5f}", f"{q:.5f}", f"{o:.5f}")
+        # print("pzz qz o", f"{p*z*z + q*z + o:.5f}")
+        res = util.solve_quadratic_inequality(p, q, o)
         trunc_interval = util.interval_intersection(trunc_interval, res)
-    # trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
+    # print("----------------- interval",trunc_interval)
     return trunc_interval

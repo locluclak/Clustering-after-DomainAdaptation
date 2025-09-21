@@ -16,7 +16,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 100, 50, 30
+ns, nt, d = 200, 50, 30
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -98,7 +98,7 @@ def test_statistic(X, X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs, m
     }
     
 def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
-    # st = time.time()
+    st = time.time()
     # print("a+b*z - X",np.sum(a+b*z - X))
     if device == "cpu":
         interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
@@ -108,9 +108,11 @@ def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs
     # print("interval da ok")
     # print("a_+b_*z - X_",np.sum(a_+b_*z - X_))
     # st1 = time.time()
-    interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
-    # print("interval kmean ok")
+    # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+
+    # # print("interval kmean ok")
     # st15 = time.time()
+    interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # p, q, o = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
     # st17 = time.time()
     # interval_kmean2 = construct_interval.solveinterval(p,q,o)
@@ -118,6 +120,8 @@ def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs
 
     # print("Interval by DA:", interval_da)
     # print(f"Time constructing interval by DA: {st1 - st:.4f} seconds")
+    # print(f"Time constructing interval by Kmean: {st15 - st1:.4f} seconds")
+    # print(f"Time constructing interval by Kmean2: {st17 - st15:.4f} seconds")
     final_interval = util.interval_intersection(interval_da, interval_kmean)
     return final_interval
 def parametric(model, X, a, b,np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, zmin = -20, zmax = 20, log=None, seed=None):
@@ -168,57 +172,57 @@ def vec(A):
     return vec.reshape(-1,1)
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    # dataseed = random.randint(0, 2**32 - 1)  # 32-bit seed
+    dataseed = 2#random.randint(0, 2**32 - 1)  # 32-bit seed
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
-    try:
-        Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=1)
-        Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=1)
-        ns = Xs.shape[0]
-        nt = Xt.shape[0]
-        d = Xs.shape[1]
-        n = ns + nt
+    # try:
+    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
+    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+    d = Xs.shape[1]
+    n = ns + nt
 
-        Xs_torch = torch.from_numpy(Xs).double().to(device)
-        Xt_torch = torch.from_numpy(Xt).double().to(device)
-        # print(Xt_torch.device)  
-        with torch.no_grad():
-            xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
-            xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+    Xs_torch = torch.from_numpy(Xs).double().to(device)
+    Xt_torch = torch.from_numpy(Xt).double().to(device)
+    # print(Xt_torch.device)  
+    with torch.no_grad():
+        xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
+        xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
 
-        
-        Xs_vec = vec(Xs)
-        Xt_vec = vec(Xt)
-        X_vec = np.vstack((Xs_vec, Xt_vec)).copy()
-        X_origin = np.vstack((Xs, Xt))
-        X_transformed = np.vstack((xs_hat, xt_hat))
+    
+    Xs_vec = vec(Xs)
+    Xt_vec = vec(Xt)
+    X_vec = np.vstack((Xs_vec, Xt_vec)).copy()
+    X_origin = np.vstack((Xs, Xt))
+    X_transformed = np.vstack((xs_hat, xt_hat))
 
-        initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
+    initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
 
-        Sigma = np.identity(n*d)
-        a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_origin, X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs, members_all_obs).values()
+    Sigma = np.identity(n*d)
+    a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_origin, X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs, members_all_obs).values()
 
-        a_2d = a.reshape(n, d)
-        b_2d = b.reshape(n, d)
-        # with torch.no_grad():
-        #     a_hat = final_model.extract_feature(torch.from_numpy(a_2d).double().to(device)).cpu().numpy()
-        #     b_hat = final_model.extract_feature(torch.from_numpy(b_2d).double().to(device)).cpu().numpy()
-        # print("run", np.sum(a_hat + b_hat*etaTX - X_transformed))
-        np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
-        # final_model.encoder = final_model.encoder.to(device)
-        # final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-        # st = time.time()
-        final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
-        # en = time.time()
-        # print(f"Time for parametric: {en-st:.4f} seconds")
-        selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-        with open('logs/selective_inference_log/p_values.txt', 'a') as f:
-            f.write(f"{selective_p_value}\n")
-        return selective_p_value
-    except Exception as e:
-        print("Error during run:", e)
-        # print("Data seed:", dataseed)
-        return None
+    a_2d = a.reshape(n, d)
+    b_2d = b.reshape(n, d)
+    # with torch.no_grad():
+    #     a_hat = final_model.extract_feature(torch.from_numpy(a_2d).double().to(device)).cpu().numpy()
+    #     b_hat = final_model.extract_feature(torch.from_numpy(b_2d).double().to(device)).cpu().numpy()
+    # print("run", np.sum(a_hat + b_hat*etaTX - X_transformed))
+    np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
+    # final_model.encoder = final_model.encoder.to(device)
+    # final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    st = time.time()
+    final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
+    en = time.time()
+    print(f"Time for parametric: {en-st:.4f} seconds")
+    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    with open('logs/selective_inference_log/p_values.txt', 'a') as f:
+        f.write(f"{selective_p_value}\n")
+    return selective_p_value
+    # except Exception as e:
+    #     print("Error during run:", e)
+    #     # print("Data seed:", dataseed)
+    #     return None
 if __name__ == "__main__":
 
     list_p_values = []
