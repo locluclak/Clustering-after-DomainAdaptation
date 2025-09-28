@@ -1,2 +1,3 @@
 **/__pycache__/
-**/trained_model
+trained_model/*
+!trained_model/20250927-154452-20dims

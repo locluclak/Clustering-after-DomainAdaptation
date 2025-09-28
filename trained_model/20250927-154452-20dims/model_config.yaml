@@ -1,0 +1,46 @@
+data:
+  data_gen_method: gen_domain_adaptation_data_k
+  dist: 1.5
+  n_features: 5
+  ns: 2000
+  nt: 100
+  scaler: StandardScaler
+  shift: 3
+  std_source:
+  - 0.25
+  - 0.5
+  - 1
+  std_target:
+  - 0.25
+  - 0.5
+  - 1
+experiment:
+  check_ari: true
+  model_random_state: 42
+  n_clusters: 3
+  seed: null
+model:
+  alpha1: 0.0001
+  alpha2: 0.0001
+  critic_hidden_dims:
+  - 100
+  decoder_hidden_dims:
+  - 50
+  - 100
+  - 500
+  encoder_hidden_dims:
+  - 500
+  - 100
+  - 50
+  use_decoder: false
+training:
+  batch_size: 32
+  dc_iter: 5
+  delta: 0.5
+  early_stopping: false
+  gamma: 10.0
+  lambda: 1.0
+  min_delta: 1.0e-05
+  num_epochs: 6000
+  patience: 40
+  verbose: false

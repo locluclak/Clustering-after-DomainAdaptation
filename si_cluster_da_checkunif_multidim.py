@@ -6,7 +6,6 @@ import yaml
 import time
 from tqdm import tqdm
 import random
-from functools import partial
 from gpu_accelerate import operations, conditioning
 
 import utils.construct_interval as construct_interval
@@ -236,7 +235,7 @@ def run(mu_s, mu_t, K, device,_=None):
 if __name__ == "__main__":
 
     list_p_values = []
-    iteration = 120
+    iteration = 40
 
     st = time.time()
     for i in range(iteration):
