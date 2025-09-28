@@ -40,6 +40,11 @@ class Encoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
+    def get_all_weights(self):
+        """
+        Return a list of (weight, bias) for all Linear layers.
+        """
+        return [layer.weight for layer in self.net if isinstance(layer, nn.Linear)]
 class Critic(nn.Module):
     def __init__(self, input_dim: int, hidden_dims: List[int]):
         """Domain critic network."""

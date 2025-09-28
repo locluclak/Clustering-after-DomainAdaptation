@@ -16,7 +16,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 200, 50, 30
+ns, nt, d = 200, 50, 20
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -39,7 +39,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("trained_model/20250919-095722")
+final_model.load_model("trained_model/20250927-154452-20dims")
 
 
 
@@ -105,19 +105,20 @@ def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs
     else:        
         interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
         interval_da = [interval_da]
-    # print("interval da ok")
     # print("a_+b_*z - X_",np.sum(a_+b_*z - X_))
+
+
+
     # st1 = time.time()
     # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
-
-    # # print("interval kmean ok")
-    # st15 = time.time()
     interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+    # st15 = time.time()
+    # interval_kmean = construct_interval.KMeanconditionCUPY(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # st16 = time.time()
     # interval_kmean = construct_interval.KMeancondition3(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # p, q, o = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs)
     # st17 = time.time()
-    # print("kmean2",st17-st16)
+    # print("kmean2",st15-st1)
     # print("kmean3",st16-st15)
     # interval_kmean2 = construct_interval.solveinterval(p,q,o)
     # st2 = time.time()
@@ -176,7 +177,7 @@ def vec(A):
     return vec.reshape(-1,1)
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    dataseed = 2#random.randint(0, 2**32 - 1)  # 32-bit seed
+    dataseed = None #random.randint(0, 2**32 - 1)  # 32-bit seed
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
@@ -202,10 +203,13 @@ def run(mu_s, mu_t, K, device,_=None):
     X_transformed = np.vstack((xs_hat, xt_hat))
 
     initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
-
+    # print(labels_all_obs)
     Sigma = np.identity(n*d)
-    a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_origin, X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs, members_all_obs).values()
-
+    try:
+        a, b, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_origin, X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs, members_all_obs).values()
+    except:
+        print("test statistic is none") 
+        return None
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
     # with torch.no_grad():
@@ -220,6 +224,8 @@ def run(mu_s, mu_t, K, device,_=None):
     en = time.time()
     print(f"Time for parametric: {en-st:.4f} seconds")
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    print(f"p-value:", selective_p_value)
+
     with open('logs/selective_inference_log/p_values.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
@@ -230,7 +236,7 @@ def run(mu_s, mu_t, K, device,_=None):
 if __name__ == "__main__":
 
     list_p_values = []
-    iteration = 1
+    iteration = 120
 
     st = time.time()
     for i in range(iteration):
@@ -239,17 +245,17 @@ if __name__ == "__main__":
         if p_value is not None:
             list_p_values.append(p_value)
 
-    print("Running time:", time.time() - st, "(s)")
-    underalpha = sum(1 for p in list_p_values if p <= 0.05)
-    print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
+    # print("Running time:", time.time() - st, "(s)")
+    # underalpha = sum(1 for p in list_p_values if p <= 0.05)
+    # print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
-    # Kiểm định thống kê
-    kstest = stats.kstest(list_p_values, stats.uniform(loc=0.0, scale=1.0).cdf)
+    # # Kiểm định thống kê
+    # kstest = stats.kstest(list_p_values, stats.uniform(loc=0.0, scale=1.0).cdf)
 
-    # Hiển thị histogram
-    plt.hist(list_p_values)
-    plt.savefig('logs/selective_inference_log/p_values_histogram.png')
-    with open('logs/selective_inference_log/p_values.txt', 'a') as f:
+    # # Hiển thị histogram
+    # plt.hist(list_p_values)
+    # plt.savefig('logs/selective_inference_log/p_values_histogram.png')
+    # with open('logs/selective_inference_log/p_values.txt', 'a') as f:
 
-        f.write(f"\nFalse positive rate: {underalpha/len(list_p_values)} out of {len(list_p_values)}\n")
-        f.write(f"\nKS test statistic: {kstest.statistic}, p-value: {kstest.pvalue}\n")
+    #     f.write(f"\nFalse positive rate: {underalpha/len(list_p_values)} out of {len(list_p_values)}\n")
+    #     f.write(f"\nKS test statistic: {kstest.statistic}, p-value: {kstest.pvalue}\n")

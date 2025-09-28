@@ -19,6 +19,8 @@ from models.wdgrl import WDGRL
 def train_model(
         Xs, 
         Xt, 
+        Xs_test = None,
+        Xt_test = None,
         config_file: str = "config.yaml"):
     # # ==== Scaling ====
     # X_train_all = np.vstack([Xs, Xt])
@@ -74,7 +76,7 @@ def train_model(
     # save model
     # get time for save model
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    saved_model_dir = os.path.join("trained_model", timestamp)
+    saved_model_dir = os.path.join("trained_model", f"{timestamp}-{d}dims")
     os.makedirs(saved_model_dir, exist_ok=True)
     final_model.save_model(saved_model_dir)
 
@@ -105,17 +107,39 @@ def train_model(
     # print("Xt",np.mean(xt_hat, axis=1))
     with open(os.path.join(saved_model_dir, "model_config.yaml"), "w") as f:  
         yaml.safe_dump(config, f) 
-    gendata.visualby_tsne(Xs, Xt, path=os.path.join(saved_model_dir, "train_tsne.png"))
+    
+    gendata.visualby_tsne(xs_hat, np.vstack((xs_hat, xt_hat)), path=os.path.join(saved_model_dir, "train_tsne.png"))
+    lw = final_model.encoder.get_all_weights()
+
+    plt.figure(figsize=(10, 5))
+
+    for idx, weights in enumerate(lw):
+        plt.subplot(1, len(lw), idx + 1)  # 1 row, N cols, current idx
+        plt.hist(weights.detach().cpu().numpy().flatten(), bins=30, alpha=0.7, color='blue')
+        plt.title(f"Layer {idx} Weights")
+        plt.xlabel("Weight value")
+        plt.ylabel("Frequency")
+
+    plt.tight_layout()
+
+    # Save figure
+    save_path = os.path.join(saved_model_dir, "encoder_weight.png")
+    plt.savefig(save_path)
+    plt.close()
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 2000, 300, 30
+    ns, nt, d = 1000, 200, 20
     # n_clusters = 2
     mu_s = np.full((ns,d),2)
     mu_t = np.full((nt,d),0)
     Xs = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=42)
     Xt = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=42)
-    wdgrl = train_model(Xs, Xt)
+
+    
+    Xs_test = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=1)
+    Xt_test = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=1)
+    wdgrl = train_model(Xs, Xt, Xs_test, Xt_test)
     # with open("config.yaml", "r") as f:
     #     config = yaml.safe_load(f)
 
