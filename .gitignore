@@ -1,3 +1,7 @@
 **/__pycache__/
 trained_model/*
 !trained_model/20250927-154452-20dims
+logs/selective_inference_log/p_values.txt
+dataset/*
+!dataset/README.md
+!dataset/datasets.py

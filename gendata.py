@@ -619,64 +619,117 @@ from sklearn.metrics import adjusted_rand_score
 from tqdm import trange
 
 
+def random_3_points(dim=2, delta: float=1,seed =None):
+    if dim < 2:
+        raise ValueError("Require at least 2 dimensions")
+    p1 = np.zeros(dim)
+    p2 = np.zeros(dim)
+    p3 = np.zeros(dim)
+
+    p2[1] = delta
+    p3[0] = delta/2
+    p3[0] = np.sqrt(3)/2 *delta 
+
+    points = np.array([p1,p2,p3])
+    rng = np.random.default_rng(seed)
+    # Random rotation in D-dimensions
+    Q, _ = np.linalg.qr(rng.standard_normal((dim, dim)))  # random orthogonal matrix
+    rotated = points @ Q.T
+
+    return rotated
+
+def random_3_clusters(n_per_cluster=50, dim=2, delta: float = 1,cluster_std=[1,1,1], seed=None):
+    rng = np.random.default_rng(seed)
+
+    centers = random_3_points(dim=dim, delta=delta, seed=seed)
+
+    X = []
+    y = []
+    for i, center in enumerate(centers):
+        cluster_points = rng.normal(loc=center, scale=cluster_std[i], size=(n_per_cluster, dim))
+        X.append(cluster_points)
+        y.append(np.full(n_per_cluster, i))
+
+    X = np.vstack(X)
+    y = np.concatenate(y)
+
+    return X, y
+
+
+
 if __name__ == "__main__":
-    fine = 0
-    notfine = 0
-    for _ in trange(100):
-        ns = 1000
-        nt = 50
-        nc = 4
-        dataset = gen_domain_adaptation_data_k(
-            ns = ns, 
-            nt = nt, 
-            n_features= 16, 
-            dist=3.5,
-            n_clusters=nc,
-            std_source=[1,1.1,1.3,0.6],
-            std_target=[1,1.7,1.9,1.2],
-            shift=0,
-            random_state=None
-            )
-        Xs, ys, cen_s = dataset["source"]
-        Xt, yt, cen_t = dataset["target"]
 
-        
-        cluster_target,kmeansT = clustering(Xt, nc)
-        X_comb = np.vstack((Xs, Xt))
-        cluster_comb, kmeanC = clustering(X_comb, nc)
-        # print(X_comb.shape, np.hstack((ys,yt)).shape)
-
-
-        ariT = adjusted_rand_score(yt, cluster_target)
-        ariC = adjusted_rand_score(yt, cluster_comb[ns:])
-        print(f"Target only: {ariT}")
-        print(f"Combined: {ariC}")
-
-
-        if ariT < ariC:
-            fine+=1
-        else:
-            notfine+=1
-        # Plot both clustering results
-        # fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-
-        # plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
-        # plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
-
-        # plt.tight_layout()
-        # plt.show()
-
-    print("Fine: ", fine)
-    print("not fine: ", notfine)
-        
-    # # Plot both clustering results
-    # fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-
-    # plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
-    # plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
-
-    # plt.tight_layout()
+    
+    # Example usage
+    X, y = random_3_clusters(dim=10, delta=5, n_per_cluster=1000, cluster_std=[0.5,1,2])
+    print("X shape:", X.shape)
+    print("y shape:", y.shape)
+    # plt.scatter(X[:,0], X[:,1], c=y, cmap="viridis", s=30, alpha=0.7)
+    # plt.axis("equal")
     # plt.show()
+
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(X[:,0], X[:,1], X[:,2], c=y, cmap="viridis", s=30, alpha=0.7)
+    plt.show()
+    # fine = 0
+    # notfine = 0
+    # for _ in trange(100):
+    #     ns = 1000
+    #     nt = 50
+    #     nc = 4
+    #     dataset = gen_domain_adaptation_data_k(
+    #         ns = ns, 
+    #         nt = nt, 
+    #         n_features= 16, 
+    #         dist=3.5,
+    #         n_clusters=nc,
+    #         std_source=[1,1.1,1.3,0.6],
+    #         std_target=[1,1.7,1.9,1.2],
+    #         shift=0,
+    #         random_state=None
+    #         )
+    #     Xs, ys, cen_s = dataset["source"]
+    #     Xt, yt, cen_t = dataset["target"]
+
+        
+    #     cluster_target,kmeansT = clustering(Xt, nc)
+    #     X_comb = np.vstack((Xs, Xt))
+    #     cluster_comb, kmeanC = clustering(X_comb, nc)
+    #     # print(X_comb.shape, np.hstack((ys,yt)).shape)
+
+
+    #     ariT = adjusted_rand_score(yt, cluster_target)
+    #     ariC = adjusted_rand_score(yt, cluster_comb[ns:])
+    #     print(f"Target only: {ariT}")
+    #     print(f"Combined: {ariC}")
+
+
+    #     if ariT < ariC:
+    #         fine+=1
+    #     else:
+    #         notfine+=1
+    #     # Plot both clustering results
+    #     # fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    #     # plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
+    #     # plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
+
+    #     # plt.tight_layout()
+    #     # plt.show()
+
+    # print("Fine: ", fine)
+    # print("not fine: ", notfine)
+        
+    # # # Plot both clustering results
+    # # fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    # # plot_clusters_with_background(Xt, yt, axes[0], kmeans=kmeansT,title= "Target Clustering")
+    # # plot_clusters_with_background(X_comb, np.hstack((ys,yt)), axes[1],kmeans=kmeanC, title="Combined Clustering")
+
+    # # plt.tight_layout()
+    # # plt.show()
 
 
 

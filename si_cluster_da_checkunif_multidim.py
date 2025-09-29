@@ -15,7 +15,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 200, 50, 20
+ns, nt, d = 100, 50, 20
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -235,7 +235,7 @@ def run(mu_s, mu_t, K, device,_=None):
 if __name__ == "__main__":
 
     list_p_values = []
-    iteration = 40
+    iteration = 1
 
     st = time.time()
     for i in range(iteration):
