@@ -1,23 +1,29 @@
 
 from scipy import stats
 import matplotlib.pyplot as plt
-with open("logs/selective_inference_log/p_values.txt","r") as f:
-    pvalues = [float(line.strip()) for line in f if line.strip()]
+nslist = [100,150,200,250]
 
-# Significance threshold
-alpha = 0.05
+FPR = []
+for ns in nslist:
+    with open(f"logs/selective_inference_log/FPRnaivep_values{ns}.txt","r") as f:
+        pvalues = [float(line.strip()) for line in f if line.strip()]
 
-# Count how many p-values are below threshold
-num_rejected = sum(p < alpha for p in pvalues)
+    # Significance threshold
+    alpha = 0.05
 
-# Total number of tests
-num_tests = len(pvalues)
+    # Count how many p-values are below threshold
+    num_rejected = sum(p < alpha for p in pvalues)
 
-# False Positive Rate
-fpr = num_rejected / num_tests
-print("FPR:",fpr)
+    # Total number of tests
+    num_tests = len(pvalues)
+
+    # False Positive Rate
+    fpr = num_rejected / num_tests
+    FPR.append(fpr)
+    print("FPR:",fpr)
+
 # Kiểm định thống kê
-kstest = stats.kstest(pvalues, "uniform")
-print(kstest)
-plt.hist(pvalues)
-plt.show()
+# kstest = stats.kstest(pvalues, "uniform")
+# print(kstest)
+# plt.hist(pvalues)
+# plt.show()

@@ -97,7 +97,7 @@ def test_statistic(X, X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs, m
     }
     
 def overconditioning(model, X, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
-    st = time.time()
+    # st = time.time()
     # print("a+b*z - X",np.sum(a+b*z - X))
     if device == "cpu":
         interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
@@ -217,16 +217,17 @@ def run(mu_s, mu_t, K, device,_=None):
     # print("run", np.sum(a_hat + b_hat*etaTX - X_transformed))
     np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
     # final_model.encoder = final_model.encoder.to(device)
-    # final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    st = time.time()
-    final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
-    en = time.time()
-    print(f"Time for parametric: {en-st:.4f} seconds")
+    final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # st = time.time()
+    # final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, zmin=-20, zmax=20,seed=None)
+    # en = time.time()
+    # final_interval = [(-np.inf, np.inf)]
+    # print(f"Time for parametric: {en-st:.4f} seconds")
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"p-value:", selective_p_value)
 
-    with open('logs/selective_inference_log/p_values.txt', 'a') as f:
-        f.write(f"{selective_p_value}\n")
+    # with open(f'logs/selective_inference_log/FPRnaivep_values{ns}.txt', 'a') as f:
+    #     f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
     #     print("Error during run:", e)
@@ -235,7 +236,7 @@ def run(mu_s, mu_t, K, device,_=None):
 if __name__ == "__main__":
 
     list_p_values = []
-    iteration = 1
+    iteration = 1000
 
     st = time.time()
     for i in range(iteration):
@@ -248,11 +249,12 @@ if __name__ == "__main__":
     # underalpha = sum(1 for p in list_p_values if p <= 0.05)
     # print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
-    # # Kiểm định thống kê
-    # kstest = stats.kstest(list_p_values, stats.uniform(loc=0.0, scale=1.0).cdf)
-
-    # # Hiển thị histogram
-    # plt.hist(list_p_values)
+    # Kiểm định thống kê
+    kstest = stats.kstest(list_p_values, 'uniform')
+    print(kstest)
+    # Hiển thị histogram
+    plt.hist(list_p_values)
+    plt.show()
     # plt.savefig('logs/selective_inference_log/p_values_histogram.png')
     # with open('logs/selective_inference_log/p_values.txt', 'a') as f:
 

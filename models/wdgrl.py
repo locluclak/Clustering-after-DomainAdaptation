@@ -73,11 +73,12 @@ class WDGRL():
             input_dim: int,
             encoder_hidden_dims: List[int]=[10], 
             critic_hidden_dims: List[int]=[10, 10],
-            alpha1: float = 1e-4, 
-            alpha2: float = 1e-4,
+            alpha1: float = 1e-4, # critic
+            alpha2: float = 1e-4, # encoder
             device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
             reallabel= None,
-            seed = None
+            seed = None,
+            n_clusters = 3,
             ):
 
         
@@ -92,11 +93,12 @@ class WDGRL():
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=alpha1)
 
         self.reallabel = reallabel
-
+        self.n_clusters = n_clusters
     def check_metric(
             self,
             Xs,
             Xt,
+            epoch,
             n_cluster:int =2,
             ):
         if self.reallabel is None:
@@ -113,15 +115,18 @@ class WDGRL():
 
         kmeans = KMeans(n_clusters=n_cluster, random_state=42)
         predicted_labels = kmeans.fit_predict(x_comb)
-
+        sil = None
         ari = adjusted_rand_score(self.reallabel, predicted_labels[ns:])
-        sil = silhouette_score(x_comb, predicted_labels)
+        # sil = silhouette_score(x_comb, predicted_labels)
 
-        kmean2 = KMeans(n_clusters=n_cluster, random_state=42)
-        pre_label_onlyT = kmean2.fit_predict(xt_hat)
-        ariT = adjusted_rand_score(self.reallabel, pre_label_onlyT)
-        silT = silhouette_score(xt_hat, pre_label_onlyT)
+        ariT = None
+        silT = None
+        # kmean2 = KMeans(n_clusters=n_cluster, random_state=42)
+        # pre_label_onlyT = kmean2.fit_predict(xt_hat)
+        # ariT = adjusted_rand_score(self.reallabel, pre_label_onlyT)
+        # silT = silhouette_score(xt_hat, pre_label_onlyT)
         return {
+            "epoch": epoch,
             "ari_comb": ari,
             "silhouette_comb": sil,
             "ari_Tonly": ariT,
@@ -239,8 +244,8 @@ class WDGRL():
 
             with torch.no_grad():
                 loss += objective_function.item()
-            if check_ari:
-                log_ari.append(self.check_metric(source_dataset, target_dataset, n_cluster=2))
+            if check_ari and (epoch%200==0 or epoch == num_epochs):
+                log_ari.append(self.check_metric(source_dataset, target_dataset,epoch=epoch, n_cluster=self.n_clusters))
         
 
             losses.append(loss)

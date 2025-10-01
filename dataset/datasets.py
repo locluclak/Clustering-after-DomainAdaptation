@@ -4,6 +4,8 @@ import struct
 from array import array
 from os.path  import join
 from PIL import Image
+from sklearn.preprocessing import MinMaxScaler
+from collections import Counter
 #
 # MNIST Data Loader Class
 #
@@ -68,7 +70,7 @@ def getUSPS():
     }
 
 def getMNIST():
-    training_images_filepath = 'dataset/MNIST/t10k-images-idx3-ubyte/t10k-images-idx3-ubyte'
+    training_images_filepath = 'dataset/MNIST/train-images-idx3-ubyte/train-images-idx3-ubyte'
     training_labels_filepath = 'dataset/MNIST/train-labels-idx1-ubyte/train-labels-idx1-ubyte'
     test_images_filepath = 'dataset/MNIST/t10k-images-idx3-ubyte/t10k-images-idx3-ubyte'
     test_labels_filepath = 'dataset/MNIST/t10k-labels-idx1-ubyte/t10k-labels-idx1-ubyte'
@@ -82,6 +84,29 @@ def getMNIST():
         "ytest": y_test,
     }
 if __name__ == "__main__":
-    print(getUSPS())
-    print(getMNIST())
+    USPS = getUSPS()
+    MNIST = getMNIST()
 
+    X_source_train = MNIST["Xtrain"]
+    y_source_train = MNIST["ytrain"]
+
+    X_target_train = USPS["Xtrain"]
+    y_target_train = USPS["ytrain"]
+
+    selected_labels = [0, 1, 3, 8]
+
+    target_mask = np.isin(y_target_train, selected_labels)
+    source_mask = np.isin(y_source_train, selected_labels)
+
+    X_target_train = X_target_train[target_mask]
+    y_target_train = y_target_train[target_mask]
+
+    X_source_train = X_source_train[source_mask]
+    y_source_train = y_source_train[source_mask]
+
+    scaler = MinMaxScaler()
+    X_target_train_norm = scaler.fit_transform(X_target_train)
+    X_source_train_norm = scaler.fit_transform(X_source_train)
+
+    print("Source label counts:", dict(Counter(y_source_train)))
+    print("Target label counts:", dict(Counter(y_target_train)))
