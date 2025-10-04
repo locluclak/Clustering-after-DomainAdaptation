@@ -194,16 +194,16 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
 
-    final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
     # final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, signobs = sign, zmin=-20, zmax=20,seed=None)
-    # final_interval = [(-np.inf, np.inf)]
+    final_interval = [(-np.inf, np.inf)]
     
     
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    # with open(f'logs/selective_inference_log/FPRnaivep_values{ns}.txt', 'a') as f:
-    #     f.write(f"{selective_p_value}\n")
+    with open(f'logs/selective_inference_log/FPRnaive_p_valueslist{ns}.txt', 'a') as f:
+        f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
     #     print("Error during run:", e)
@@ -226,11 +226,11 @@ if __name__ == "__main__":
     # print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
     # Kiểm định thống kê
-    kstest = stats.kstest(list_p_values, 'uniform')
-    print(kstest)
-    # Hiển thị histogram
-    plt.hist(list_p_values)
-    plt.show()
+    # kstest = stats.kstest(list_p_values, 'uniform')
+    # print(kstest)
+    # # Hiển thị histogram
+    # plt.hist(list_p_values)
+    # plt.show()
     # plt.savefig('logs/selective_inference_log/p_values_histogram.png')
     # with open('logs/selective_inference_log/p_values.txt', 'a') as f:
 
