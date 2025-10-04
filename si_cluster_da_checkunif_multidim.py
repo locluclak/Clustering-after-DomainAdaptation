@@ -127,6 +127,9 @@ def parametric(model, X, a, b,np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, sign
             idx_cluster_c1 = np.argwhere(labels_all_obs[-1][ns:] == c1).flatten()
             idx_cluster_c2 = np.argwhere(labels_all_obs[-1][ns:] == c2).flatten()
 
+            print("sign obs",signobs)
+            print("sign z",sign_z)
+
             if np.array_equal(c1_obs, idx_cluster_c1) and np.array_equal(c2_obs, idx_cluster_c2) and np.array_equal(signobs, sign_z):
                 Z = util.interval_union(Z, oc)
                 countitv+=1
@@ -144,7 +147,8 @@ def parametric(model, X, a, b,np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, sign
             f.write(f"Final interval: {Z}\n")
     # print("Final interval:", Z)
     return Z
-
+def permutation_test(Xt, label_all_obs):
+    return 
 def vec(A):
     vec = A.reshape(-1)
     return vec.reshape(-1,1)
@@ -195,14 +199,14 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
     # final_interval = overconditioning(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, signobs = sign, zmin=-20, zmax=20,seed=None)
-    final_interval = [(-np.inf, np.inf)]
+    final_interval = parametric(final_model, X_origin, a_2d, b_2d,np_wdgrl, K, c1, c2, c1_obs, c2_obs, signobs = sign, zmin=-20, zmax=20,seed=None)
+    # final_interval = [(-np.inf, np.inf)]
     
     
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/FPRnaive_p_valueslist{ns}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/FPRpara_p_valueslist{ns}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
@@ -212,7 +216,7 @@ def run(mu_s, mu_t, K, device,_=None):
 if __name__ == "__main__":
 
     list_p_values = []
-    iteration = 1000
+    iteration = 1
 
     st = time.time()
     for i in range(iteration):

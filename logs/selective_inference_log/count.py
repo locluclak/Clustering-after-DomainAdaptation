@@ -5,7 +5,7 @@ nslist = [100,150,200,250]
 
 FPR = []
 for ns in nslist:
-    with open(f"logs/selective_inference_log/FPRnaivep_values{ns}.txt","r") as f:
+    with open(f"logs/selective_inference_log/FPRnaive_p_valueslist{ns}.txt","r") as f:
         pvalues = [float(line.strip()) for line in f if line.strip()]
 
     # Significance threshold
