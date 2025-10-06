@@ -2,6 +2,13 @@ import numpy as np
 import utils.util as util
 import solveinequalities.interval as bst_solving_eq
 
+
+def statistic_condition(eta, a,b,Xtvec):
+    sign = np.sign(eta.T.dot(Xtvec)).astype(int)
+    u = eta.T.dot(a) * sign * -1
+    v = eta.T.dot(b) * sign * -1
+    itv = bst_solving_eq.interval_intersection(v,-u)
+    return itv
 def ReLUcondition(model, a, b, X):
     layers = []
     for name, param in model.named_children():
