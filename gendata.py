@@ -638,22 +638,34 @@ def random_3_points(dim=2, delta: float=1,seed =None):
 
     return rotated
 
-def random_3_clusters(n_per_cluster=50, dim=2, delta: float = 1,cluster_std=[1,1,1], seed=None):
+def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1], seed=None):
     rng = np.random.default_rng(seed)
 
-    centers = random_3_points(dim=dim, delta=delta, seed=seed)
 
-    X = []
-    y = []
-    for i, center in enumerate(centers):
-        cluster_points = rng.normal(loc=center, scale=cluster_std[i], size=(n_per_cluster, dim))
-        X.append(cluster_points)
-        y.append(np.full(n_per_cluster, i))
+    shift = 2
 
-    X = np.vstack(X)
-    y = np.concatenate(y)
+    centers_t = random_3_points(dim=dim, delta=delta, seed=seed)
+    centers_s = centers_t + shift
+    Xs = []
+    ys = []
+    for i, center in enumerate(centers_s):
+        cluster_points = rng.normal(loc=center, scale=cluster_std[i], size=(ns, dim))
+        Xs.append(cluster_points)
+        ys.append(np.full(ns, i))
+    Xs = np.vstack(Xs)
+    ys = np.concatenate(ys)
 
-    return X, y
+    Xt = []
+    yt = []
+    for i, center in enumerate(centers_t):
+        cluster_points = rng.normal(loc=center, scale=cluster_std[i], size=(nt, dim))
+        Xt.append(cluster_points)
+        yt.append(np.full(nt, i))
+
+    Xt = np.vstack(Xt)
+    yt = np.concatenate(yt)
+
+    return Xs, Xt, ys, yt
 
 
 
