@@ -665,6 +665,16 @@ def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1],
     Xt = np.vstack(Xt)
     yt = np.concatenate(yt)
 
+    # Shuffle source
+    idx_s = rng.permutation(len(Xs))
+    Xs = Xs[idx_s]
+    ys = ys[idx_s]
+
+    # Shuffle target
+    idx_t = rng.permutation(len(Xt))
+    Xt = Xt[idx_t]
+    yt = yt[idx_t]
+
     return Xs, Xt, ys, yt
 
 

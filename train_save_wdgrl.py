@@ -129,17 +129,32 @@ def train_model(
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 1000, 200, 20
+    ns, nt, d = 500, 100, 20
     # n_clusters = 2
-    mu_s = np.full((ns,d),2)
-    mu_t = np.full((nt,d),0)
-    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=42)
-    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=42)
+    # mu_s = np.full((ns,d),2)
+    # mu_t = np.full((nt,d),0)
+    Xs, Xt,Ys,Yt = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
+                                             delta=2, cluster_std=[0.25, 0.5, 1],seed=1)
+
+
+    # print(Ys.shape)
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+
+    Xs = Xs[:ns//2]
+    Xt = Xt[:nt//2]
+    Ys = Ys[:ns//2]
+    Yt = Yt[:nt//2]
+
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+    # Xs = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=42)
+    # Xt = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=42)
 
     
-    Xs_test = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=1)
-    Xt_test = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=1)
-    wdgrl = train_model(Xs, Xt, Xs_test, Xt_test)
+    # Xs_test = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=1)
+    # Xt_test = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=1)
+    wdgrl = train_model(Xs, Xt)#, Xs_test, Xt_test)
     # with open("config.yaml", "r") as f:
     #     config = yaml.safe_load(f)
 
