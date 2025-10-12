@@ -53,33 +53,33 @@ def main():
     #         random_state=seed,
     #     )
     # else:
-    #     dataset = gendata.gen_domain_adaptation_data2(
-    #         ns=ns,
-    #         nt=nt,
-    #         n_features=d,
-    #         dist=data_cfg["dist"],
-    #         std_source=data_cfg["std_source"],
-    #         std_target=data_cfg["std_target"],
-    #         shift=data_cfg["shift"],
-    #         random_state=seed,
-    #     )
+    # dataset = gendata.gendata2cluster(
+    #     ns=ns,
+    #     nt=nt,
+    #     n_features=d,
+    #     dist=3,
+    #     std_source=0.5,
+    #     std_target=1,
+    #     shift=2,
+    #     random_state=1,
+    # )
     # Xs, Ys, _ = dataset["source"]
     # Xt, Yt, _ = dataset["target"]
-    Xs, Xt,Ys,Yt = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=4, cluster_std=[0.25, 0.5, 1],seed=1)
+    Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
+                                             delta=8, cluster_std=[0.25, 0.5, 1],seed=1)
 
 
     # print(Ys.shape)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
 
-    Xs = Xs[:ns//2]
-    Xt = Xt[:nt//2]
-    Ys = Ys[:ns//2]
-    Yt = Yt[:nt//2]
+    # Xs = Xs[:ns//2]
+    # Xt = Xt[:nt//2]
+    # Ys = Ys[:ns//2]
+    # Yt = Yt[:nt//2]
 
-    ns = Xs.shape[0]
-    nt = Xt.shape[0]
+    # ns = Xs.shape[0]
+    # nt = Xt.shape[0]
 #     # ==== Scaling ====
 #     X_train_all = np.vstack([Xs, Xt])
 #     scaler = StandardScaler().fit(X_train_all)

@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 
-def kmeans(X, k, max_iters=80, tol=1e-4, seed=42):
+def kmeans(X, k, max_iters=300, tol=1e-4, seed=42):
     n = X.shape[0]
     rng = np.random.RandomState(seed)  # Create a separate random generator
     initial_indices = rng.choice(n, k, replace=False) 

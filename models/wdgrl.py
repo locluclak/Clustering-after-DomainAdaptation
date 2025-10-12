@@ -117,7 +117,7 @@ class WDGRL():
         predicted_labels = kmeans.fit_predict(x_comb)
         sil = None
         ari = adjusted_rand_score(self.reallabel, predicted_labels[ns:])
-        # sil = silhouette_score(x_comb, predicted_labels)
+        sil = silhouette_score(x_comb, predicted_labels)
 
         ariT = None
         silT = None
@@ -131,6 +131,31 @@ class WDGRL():
             "silhouette_comb": sil,
             "ari_Tonly": ariT,
             "sil_Tonly": silT,
+        }
+    def check_silhoutte(
+            self,
+            Xs,
+            Xt,
+            epoch,
+            n_cluster:int =2,
+            ):
+
+        ns = len(Xs)
+        xs_hat = self.extract_feature(Xs.tensors[0].to(self.device))
+        xt_hat = self.extract_feature(Xt.tensors[0].to(self.device))
+        xs_hat = xs_hat.cpu().numpy()
+        xt_hat = xt_hat.cpu().numpy()
+
+        x_comb = np.vstack((xs_hat, xt_hat))
+
+        kmeans = KMeans(n_clusters=n_cluster, random_state=42)
+        predicted_labels = kmeans.fit_predict(x_comb)
+
+        sil = silhouette_score(x_comb, predicted_labels)
+
+        return {
+            "epoch": epoch,
+            "silhouette_comb": sil,
         }
 
     def compute_gradient_penalty(
@@ -165,9 +190,8 @@ class WDGRL():
             dc_iter: int = 5,
             batch_size: int = 32,
             verbose: bool = False,
-            early_stopping: bool = True,
-            patience: int = 20,
-            min_delta: float = 1e-5,
+            early_stopping: bool = False,
+            model_path: str = None,
             check_ari: bool = True,
             ) -> List[float]:
         
@@ -180,10 +204,7 @@ class WDGRL():
         source_size = len(source_dataset)
         target_size = len(target_dataset)
 
-        best_objective = None
-        best_epoch = 0
-        wait = 0
-        best_state = None
+        best_silhoutte = 0
         log_ari = []
         
         for epoch in trange(num_epochs, desc='Epoch'):
@@ -244,9 +265,16 @@ class WDGRL():
 
             with torch.no_grad():
                 loss += objective_function.item()
-            if check_ari and (epoch%200==0 or epoch == num_epochs):
+            if check_ari and (epoch%100==0 or epoch == num_epochs):
                 log_ari.append(self.check_metric(source_dataset, target_dataset,epoch=epoch, n_cluster=self.n_clusters))
-        
+            if early_stopping and epoch > num_epochs//2 and epoch%100==0:
+                sil = self.check_silhoutte(source_dataset, target_dataset,epoch=epoch, n_cluster=self.n_clusters)["silhouette_comb"]
+                if sil > best_silhoutte:
+                    best_silhoutte = sil
+                    self.save_model(f"{model_path}/early_model")
+                    if check_ari:
+                        print("temp model save with ari = ", log_ari[-1]["ari_comb"])
+
 
             losses.append(loss)
             if verbose:

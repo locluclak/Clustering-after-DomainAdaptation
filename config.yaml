@@ -18,9 +18,9 @@ experiment:
 
 # # k clusters
 data:
-  ns: 500
-  nt: 100
-  n_features: 20
+  ns: 2000
+  nt: 500
+  n_features: 10
   dist: 1.5 # distance between clusters
   std_source: [0.25, 0.5, 1] # ignore
   std_target: [0.25, 0.5, 1] # ignore
@@ -29,11 +29,11 @@ data:
   data_gen_method: gen_domain_adaptation_data_k #ignore
 
 model:
-  encoder_hidden_dims: [30, 16, 12]
+  encoder_hidden_dims: [500, 100]
   decoder_hidden_dims: [50, 100, 500] # not used ignore
-  critic_hidden_dims: [12,12]
-  alpha1: 0.0002 # critic
-  alpha2: 0.0002 # encoder
+  critic_hidden_dims: [100]
+  alpha1: 0.0001 # critic
+  alpha2: 0.0001 # encoder
   use_decoder: false
 
 training:

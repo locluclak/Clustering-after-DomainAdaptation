@@ -40,7 +40,7 @@ final_model = WDGRL(
 
 final_model.load_model("trained_model/20250927-154452-20dims")
 
-
+# def conditional_power(M, )
 
 def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
 
