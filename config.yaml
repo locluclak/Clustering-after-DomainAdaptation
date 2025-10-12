@@ -22,15 +22,15 @@ data:
   nt: 100
   n_features: 20
   dist: 1.5 # distance between clusters
-  std_source: [0.25, 0.5, 1] # scalar or List len() = n_clusters
-  std_target: [0.25, 0.5, 1]
-  shift: 3
-  scaler: StandardScaler
-  data_gen_method: gen_domain_adaptation_data_k 
+  std_source: [0.25, 0.5, 1] # ignore
+  std_target: [0.25, 0.5, 1] # ignore
+  shift: 3 # ignore
+  scaler: StandardScaler # ignore
+  data_gen_method: gen_domain_adaptation_data_k #ignore
 
 model:
   encoder_hidden_dims: [30, 16, 12]
-  decoder_hidden_dims: [50, 100, 500] # not used
+  decoder_hidden_dims: [50, 100, 500] # not used ignore
   critic_hidden_dims: [12,12]
   alpha1: 0.0002 # critic
   alpha2: 0.0002 # encoder
@@ -38,13 +38,13 @@ model:
 
 training:
   num_epochs: 6000
-  batch_size: 32
-  dc_iter: 5
-  gamma: 10.0
-  delta: 0.5 # delta, lambda controls the decoder - ignore if use_decoder = false
-  lambda: 1.0
+  batch_size: 32 # no need to change
+  dc_iter: 5 # epoch train critic adjudst +1 or -1
+  gamma: 10.0 # how strong of critic gradient
+  delta: 0.5 # delta, lambda controls the decoder - ignore if use_decoder = false ignore
+  lambda: 1.0 # ignore
   # early stopping is not complete - set false
-  early_stopping: false
-  patience: 40
-  min_delta: !!float 1e-5
-  verbose: false
+  early_stopping: false # ignore
+  patience: 40 # ignore
+  min_delta: !!float 1e-5 #ignore
+  verbose: false #ignore
