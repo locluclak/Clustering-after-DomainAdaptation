@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251012-221630-delta8\\early_model")
+final_model.load_model("logs\\20251013-221745-delta6")
 
 # def conditional_power(M, )
 
@@ -245,7 +245,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 8
+    delta = 6
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
 
@@ -283,17 +283,21 @@ def run(mu_s, mu_t, K, device,_=None):
     except Exception as e:
         print("test statistic is none", e) 
         return None
-    # check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=1))) - np.sum(np.abs(np.mean(mut[c2_obs], axis=1)))
+    print(mut.shape)
+    print(mut[c1_obs].shape)
+    print(mut[c2_obs].shape)
+
+    check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
     # print(check_h1)
-    # if abs(check_h1) < 1e-3:
-    #     print("Incorrect cluster", check_h1)
-    #     return None
-    for k in [c1,c2]:
-        cluster_mask = (labelkmean == k).astype(int)
-        true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
-        ari = adjusted_rand_score(true_mask, cluster_mask)
-        if ari <0.95:
-            return None
+    if abs(check_h1) < 1e-3:
+        print("Incorrect cluster", check_h1)
+        return None
+    # for k in [c1,c2]:
+    #     cluster_mask = (labelkmean == k).astype(int)
+    #     true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
+    #     ari = adjusted_rand_score(true_mask, cluster_mask)
+    #     if ari <0.95:
+    #         return None
     # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
     # print(permutation_test_pvalue)
     # # with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
