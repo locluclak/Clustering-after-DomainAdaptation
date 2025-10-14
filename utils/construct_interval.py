@@ -315,7 +315,7 @@ def solveinterval(P: np.ndarray, Q: np.ndarray, O: np.ndarray, z):
     # print("----------------- interval",trunc_interval)
     return trunc_interval
 
-import cupy as cp
+#import cupy as cp
 
 def KMeanconditionCUPY(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
     trunc_interval = [(-np.inf, np.inf)]

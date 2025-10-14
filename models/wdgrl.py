@@ -75,7 +75,8 @@ class WDGRL():
             critic_hidden_dims: List[int]=[10, 10],
             alpha1: float = 1e-4, # critic
             alpha2: float = 1e-4, # encoder
-            device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+            #device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+            device: str = "cpu",
             reallabel= None,
             seed = None,
             n_clusters = 3,
