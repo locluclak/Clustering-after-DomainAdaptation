@@ -66,7 +66,7 @@ def main():
     # Xs, Ys, _ = dataset["source"]
     # Xt, Yt, _ = dataset["target"]
     Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=4, cluster_std=[0.25, 0.5, 1],seed=1)
+                                             delta=2, cluster_std=[0.25, 0.5, 1],seed=1)
 
 
     # print(Ys.shape)
