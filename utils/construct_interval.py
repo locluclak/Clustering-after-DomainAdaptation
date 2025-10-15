@@ -315,86 +315,86 @@ def solveinterval(P: np.ndarray, Q: np.ndarray, O: np.ndarray, z):
     # print("----------------- interval",trunc_interval)
     return trunc_interval
 
-import cupy as cp
+# import cupy as cp
 
-def KMeanconditionCUPY(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
-    trunc_interval = [(-np.inf, np.inf)]
+# def KMeanconditionCUPY(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
+#     trunc_interval = [(-np.inf, np.inf)]
 
-    # Move arrays to GPU in float64
-    A = cp.asarray(A, dtype=cp.float64)
-    B = cp.asarray(B, dtype=cp.float64)
-    labels_all = cp.asarray(labels_all)  # keep int type for indexing
+#     # Move arrays to GPU in float64
+#     A = cp.asarray(A, dtype=cp.float64)
+#     B = cp.asarray(B, dtype=cp.float64)
+#     labels_all = cp.asarray(labels_all)  # keep int type for indexing
 
-    T = labels_all.shape[0]
+#     T = labels_all.shape[0]
 
-    # One-hot encoding for labels (T-1 x K x n)
-    labels_for_one_hot = labels_all[:-1]
-    oh = cp.zeros((T-1, K, n), dtype=cp.float64)
-    oh[cp.arange(T-1)[:, None], labels_for_one_hot, cp.arange(n)] = 1.0
-    sums = oh.sum(axis=2, keepdims=True)
-    sums = cp.where(sums == 0, 1.0, sums)
-    oh /= sums
+#     # One-hot encoding for labels (T-1 x K x n)
+#     labels_for_one_hot = labels_all[:-1]
+#     oh = cp.zeros((T-1, K, n), dtype=cp.float64)
+#     oh[cp.arange(T-1)[:, None], labels_for_one_hot, cp.arange(n)] = 1.0
+#     sums = oh.sum(axis=2, keepdims=True)
+#     sums = cp.where(sums == 0, 1.0, sums)
+#     oh /= sums
 
-    # Initial centroids one-hot (1 x K x n)
-    mat = cp.zeros((K, n), dtype=cp.float64)
-    mat[cp.arange(K), initial_centroids] = 1.0
-    one_hot = cp.concatenate([mat[None], oh], axis=0)
+#     # Initial centroids one-hot (1 x K x n)
+#     mat = cp.zeros((K, n), dtype=cp.float64)
+#     mat[cp.arange(K), initial_centroids] = 1.0
+#     one_hot = cp.concatenate([mat[None], oh], axis=0)
 
-    # Compute LCA, LCB (T x K x d)
-    LCA = one_hot @ A
-    LCB = one_hot @ B
+#     # Compute LCA, LCB (T x K x d)
+#     LCA = one_hot @ A
+#     LCB = one_hot @ B
 
-    # Compute NCo, NCq, NCp (T x K)
-    NCo = cp.sum(LCA**2, axis=-1)
-    NCq = 2.0 * cp.sum(LCA * LCB, axis=-1)
-    NCp = cp.sum(LCB**2, axis=-1)
+#     # Compute NCo, NCq, NCp (T x K)
+#     NCo = cp.sum(LCA**2, axis=-1)
+#     NCq = 2.0 * cp.sum(LCA * LCB, axis=-1)
+#     NCp = cp.sum(LCB**2, axis=-1)
 
-    # Mask and XA, XB
-    mask = (labels_all[..., None] == cp.arange(K))  # T x n x K
-    XA = A[None, :, None, :] * mask[..., None]  # T x n x K x d
-    XB = B[None, :, None, :] * mask[..., None]  # T x n x K x d
+#     # Mask and XA, XB
+#     mask = (labels_all[..., None] == cp.arange(K))  # T x n x K
+#     XA = A[None, :, None, :] * mask[..., None]  # T x n x K x d
+#     XB = B[None, :, None, :] * mask[..., None]  # T x n x K x d
 
-    # Differences
-    LCA_diff = LCA[:, :, None, :] - LCA[:, None, :, :]  # T x K x K x d
-    LCB_diff = LCB[:, :, None, :] - LCB[:, None, :, :]  # T x K x K x d
+#     # Differences
+#     LCA_diff = LCA[:, :, None, :] - LCA[:, None, :, :]  # T x K x K x d
+#     LCB_diff = LCB[:, :, None, :] - LCB[:, None, :, :]  # T x K x K x d
 
-    # Dot products
-    XBdotLCB = cp.einsum('tnkd,tkjd->tnkj', XB, LCB_diff)
-    XBdotLCA = cp.einsum('tnkd,tkjd->tnkj', XB, LCA_diff)
-    XAdotLCB = cp.einsum('tnkd,tkjd->tnkj', XA, LCB_diff)
-    XBdotLCA_XAdotLCB = XBdotLCA + XAdotLCB
-    XAdotLCA = cp.einsum('tnkd,tkjd->tnkj', XA, LCA_diff)
+#     # Dot products
+#     XBdotLCB = cp.einsum('tnkd,tkjd->tnkj', XB, LCB_diff)
+#     XBdotLCA = cp.einsum('tnkd,tkjd->tnkj', XB, LCA_diff)
+#     XAdotLCB = cp.einsum('tnkd,tkjd->tnkj', XA, LCB_diff)
+#     XBdotLCA_XAdotLCB = XBdotLCA + XAdotLCB
+#     XAdotLCA = cp.einsum('tnkd,tkjd->tnkj', XA, LCA_diff)
 
-    # P, Q, O
-    diff_NCp = NCp[:, :, None] - NCp[:, None, :]
-    P = diff_NCp[:, None, :, :] - 2 * XBdotLCB
+#     # P, Q, O
+#     diff_NCp = NCp[:, :, None] - NCp[:, None, :]
+#     P = diff_NCp[:, None, :, :] - 2 * XBdotLCB
 
-    diff_NCq = NCq[:, :, None] - NCq[:, None, :]
-    Q = diff_NCq[:, None, :, :] - 2 * XBdotLCA_XAdotLCB
+#     diff_NCq = NCq[:, :, None] - NCq[:, None, :]
+#     Q = diff_NCq[:, None, :, :] - 2 * XBdotLCA_XAdotLCB
 
-    diff_NCo = NCo[:, :, None] - NCo[:, None, :]
-    O = diff_NCo[:, None, :, :] - 2 * XAdotLCA
+#     diff_NCo = NCo[:, :, None] - NCo[:, None, :]
+#     O = diff_NCo[:, None, :, :] - 2 * XAdotLCA
 
-    # Valid mask for k != j
-    eye = cp.eye(K, dtype=cp.float64)[None, None, :, :]
-    mask_valid = mask[:, :, :, None] * (1 - eye)
+#     # Valid mask for k != j
+#     eye = cp.eye(K, dtype=cp.float64)[None, None, :, :]
+#     mask_valid = mask[:, :, :, None] * (1 - eye)
 
-    # Flatten valid entries
-    indices = cp.nonzero(mask_valid)
-    P_flat = P[indices]
-    Q_flat = Q[indices]
-    O_flat = O[indices]
+#     # Flatten valid entries
+#     indices = cp.nonzero(mask_valid)
+#     P_flat = P[indices]
+#     Q_flat = Q[indices]
+#     O_flat = O[indices]
 
-    # >>>> MOVE TO CPU for solveinterval
-    P_flat_cpu = cp.asnumpy(P_flat)
-    Q_flat_cpu = cp.asnumpy(Q_flat)
-    O_flat_cpu = cp.asnumpy(O_flat)
+#     # >>>> MOVE TO CPU for solveinterval
+#     P_flat_cpu = cp.asnumpy(P_flat)
+#     Q_flat_cpu = cp.asnumpy(Q_flat)
+#     O_flat_cpu = cp.asnumpy(O_flat)
 
-    new_intervals = solveinterval(P_flat_cpu, Q_flat_cpu, O_flat_cpu, z)
+#     new_intervals = solveinterval(P_flat_cpu, Q_flat_cpu, O_flat_cpu, z)
 
-    # Assuming util.interval_intersection works with NumPy
-    trunc_interval = util.interval_intersection(trunc_interval, new_intervals)
+#     # Assuming util.interval_intersection works with NumPy
+#     trunc_interval = util.interval_intersection(trunc_interval, new_intervals)
 
-    return [(float(a), float(b)) for (a, b) in trunc_interval]
+#     return [(float(a), float(b)) for (a, b) in trunc_interval]
 
 

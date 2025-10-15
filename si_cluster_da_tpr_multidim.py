@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251013-221745-delta6")
+final_model.load_model("logs\\20251015-143803-delta4")
 
 # def conditional_power(M, )
 
@@ -245,7 +245,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 6
+    delta = 4
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
 
