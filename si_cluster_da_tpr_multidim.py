@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251015-220600-delta2\\early_model")
+final_model.load_model("logs\\20251015-220600-delta2")
 
 # def conditional_power(M, )
 
@@ -97,11 +97,13 @@ def overconditioning(model, X,eta, a, b, np_wdgrl, n_clusters, initial_centroids
         interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
         interval_da = [interval_da]
 
-    # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+    # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # interval_kmean = construct_interval.KMeanconditionCUPY(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_test_statistic = construct_interval.statistic_condition(eta, vec(a[ns:]), vec(b[ns:]), vec(X[ns:]))
-
+    # print("interval_da", interval_da)
+    # print("interval_kmean", interval_kmean)
+    # print("interval_test_statistic", interval_test_statistic)
     final_interval = util.interval_intersection(interval_test_statistic,
                       util.interval_intersection(interval_da, interval_kmean))
     return final_interval
@@ -289,7 +291,7 @@ def run(mu_s, mu_t, K, device,_=None):
 
     check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
     # print(check_h1)
-    if abs(check_h1) < 1e-3:
+    if abs(check_h1) < 0.01:
         print("Incorrect cluster", check_h1)
         return None
     # for k in [c1,c2]:
@@ -298,11 +300,11 @@ def run(mu_s, mu_t, K, device,_=None):
     #     ari = adjusted_rand_score(true_mask, cluster_mask)
     #     if ari <0.95:
     #         return None
-    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    # print(permutation_test_pvalue)
-    # # with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
-    # #     f.write(f"{permutation_test_pvalue}\n")
-    # return permutation_test_pvalue
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    print(permutation_test_pvalue)
+    with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
+        f.write(f"{permutation_test_pvalue}\n")
+    return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
 
@@ -313,25 +315,25 @@ def run(mu_s, mu_t, K, device,_=None):
     std = np.sqrt(etaT_Sigma_eta)
 
 
-    # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    final_interval = parametric(final_model, 
-                                X_origin, 
-                                a_2d, 
-                                b_2d,
-                                eta_tmp,
-                                np_wdgrl, 
-                                K, c1, c2, c1_obs, c2_obs, 
-                                signobs = sign, 
-                                zmin=-20*std, zmax=20*std,
-                                  seed=dataseed)
+    final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # final_interval = parametric(final_model, 
+    #                             X_origin, 
+    #                             a_2d, 
+    #                             b_2d,
+    #                             eta_tmp,
+    #                             np_wdgrl, 
+    #                             K, c1, c2, c1_obs, c2_obs, 
+    #                             signobs = sign, 
+    #                             zmin=-20*std, zmax=20*std,
+    #                               seed=dataseed)
     # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
-    # print("Final interval",final_interval)
+    print("Final interval",final_interval)
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/TPRoc_p_valueslist_delta{delta}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
