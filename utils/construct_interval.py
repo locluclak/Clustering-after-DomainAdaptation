@@ -170,41 +170,50 @@ def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0)
     trunc_interval = [(-np.inf, np.inf)]
 
     # A, B shape n x d
-    
-    labels_all = np.asarray(labels_all) # shape T x n
+    labels_all = np.asarray(labels_all, dtype=np.int64)  # T x n
     T = labels_all.shape[0]
-
     labels_for_one_hot = labels_all[:-1, :]
 
-
+    # build oh as before (ensure labels are ints)
     oh = np.zeros((T-1, K, n), dtype=float)
     rows = np.arange(n)[None, :]
     batches = np.arange(T-1)[:, None]
     oh[batches, labels_for_one_hot, rows] = 1.0
 
+    counts = oh.sum(axis=2)   # shape (T-1, K)
+    valid = np.ones((T, K), dtype=bool)
+    valid[1:, :] = (counts != 0)
+
+    # normalize safely (we will rely on valid to skip zero-counts)
     sums = oh.sum(axis=2, keepdims=True)
     sums[sums == 0] = 1.0
     oh = oh / sums
-    
-    
+
+    # one_hot and LCA/LCB
     mat = np.zeros((K, n), dtype=float)
     mat[np.arange(K), initial_centroids] = 1.0
-    one_hot = np.vstack([mat[None, ...], oh])
-
-    LCA = one_hot @ A
-    LCB = one_hot @ B
+    one_hot = np.vstack([mat[None, ...], oh])   # shape (T, K, n)
+    LCA = one_hot.dot(A)    # (T, K, d)
+    LCB = one_hot.dot(B)
 
     NCo = np.sum(LCA**2, axis=-1)
     NCq = 2.0 * np.sum(LCA*LCB, axis=-1)
     NCp = np.sum(LCB**2, axis=-1)
 
-    for k in range(K):
-        mask_k = (labels_all  == k)
-        mask_kdim = mask_k[..., None]
-        XA_k = A*mask_kdim
-        XB_k = B*mask_kdim
+    # build self_mask to skip i == centroid (only relevant for t==0)
+    self_mask = np.zeros((T, n), dtype=bool)
+    init_labels = labels_all[0]
+    init_centroid_at_label = np.asarray(initial_centroids, dtype=int)[init_labels]  # length n
+    self_mask[0, :] = (np.arange(n) == init_centroid_at_label)
 
-        LCA_k = LCA[:, k, :]
+    trunc_interval = [(-np.inf, np.inf)]
+
+    for k in range(K):
+        mask_k = (labels_all == k)   # (T, n)
+        XA_k = A * mask_k[..., None]  # (T, n, d)
+        XB_k = B * mask_k[..., None]
+
+        LCA_k = LCA[:, k, :]   # (T, d)
         LCB_k = LCB[:, k, :]
 
         for k_ in range(K):
@@ -214,18 +223,25 @@ def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0)
             LCB_k_ = LCB[:, k_, :]
             LCA_kk = LCA_k - LCA_k_
             LCB_kk = LCB_k - LCB_k_
+
             XBdotLCB = np.einsum('tnd,td->tn', XB_k, LCB_kk)
-            XBdotLCAplusXAdotLCB = np.einsum('tnd,td->tn', XB_k, LCA_kk)+np.einsum('tnd,td->tn', XA_k, LCB_kk)
+            XBdotLCAplusXAdotLCB = (np.einsum('tnd,td->tn', XB_k, LCA_kk) +
+                                    np.einsum('tnd,td->tn', XA_k, LCB_kk))
             XAdotLCA = np.einsum('tnd,td->tn', XA_k, LCA_kk)
 
+            P = (NCp[:, k] - NCp[:, k_])[:, None] - 2 * XBdotLCB
+            Q = (NCq[:, k] - NCq[:, k_])[:, None] - 2 * XBdotLCAplusXAdotLCB
+            O = (NCo[:, k] - NCo[:, k_])[:, None] - 2 * XAdotLCA
 
-            P = (NCp[:, k] - NCp[:, k_])[:, None] - 2*XBdotLCB
-            Q = (NCq[:, k] - NCq[:, k_])[:, None] - 2*XBdotLCAplusXAdotLCB
-            O = (NCo[:, k] - NCo[:, k_])[:, None] - 2*XAdotLCA
-            P = P[mask_k == True]
-            Q = Q[mask_k == True]
-            O = O[mask_k == True]
-            trunc_interval = util.interval_intersection(trunc_interval,solveinterval(P, Q, O, z))
+            # combine masks: mask_k (points currently labeled k) AND valid for previous cluster k AND not self_mask
+            combined_mask = mask_k & valid[:, k][:, None] & (~self_mask)
+            P_sel = P[combined_mask]
+            Q_sel = Q[combined_mask]
+            O_sel = O[combined_mask]
+
+            if P_sel.size == 0:
+                continue
+            trunc_interval = util.interval_intersection(trunc_interval,solveinterval(P_sel, Q_sel, O_sel, z))
 
     trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
     return trunc_interval
