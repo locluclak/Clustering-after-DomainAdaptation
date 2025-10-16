@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251015-220600-delta2")
+final_model.load_model("logs\\20251012-221630-delta8")
 
 # def conditional_power(M, )
 
@@ -247,7 +247,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 2
+    delta = 8
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
 
@@ -300,11 +300,11 @@ def run(mu_s, mu_t, K, device,_=None):
     #     ari = adjusted_rand_score(true_mask, cluster_mask)
     #     if ari <0.95:
     #         return None
-    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    print(permutation_test_pvalue)
-    with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
-        f.write(f"{permutation_test_pvalue}\n")
-    return permutation_test_pvalue
+    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    # print(permutation_test_pvalue)
+    # with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
+    #     f.write(f"{permutation_test_pvalue}\n")
+    # return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
 
@@ -315,17 +315,17 @@ def run(mu_s, mu_t, K, device,_=None):
     std = np.sqrt(etaT_Sigma_eta)
 
 
-    final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # final_interval = parametric(final_model, 
-    #                             X_origin, 
-    #                             a_2d, 
-    #                             b_2d,
-    #                             eta_tmp,
-    #                             np_wdgrl, 
-    #                             K, c1, c2, c1_obs, c2_obs, 
-    #                             signobs = sign, 
-    #                             zmin=-20*std, zmax=20*std,
-    #                               seed=dataseed)
+    # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    final_interval = parametric(final_model, 
+                                X_origin, 
+                                a_2d, 
+                                b_2d,
+                                eta_tmp,
+                                np_wdgrl, 
+                                K, c1, c2, c1_obs, c2_obs, 
+                                signobs = sign, 
+                                zmin=-20*std, zmax=20*std,
+                                  seed=dataseed)
     # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
