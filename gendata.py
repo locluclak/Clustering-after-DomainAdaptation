@@ -727,14 +727,59 @@ def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1],
     mut = mut[idx_t]
 
     return Xs, Xt, ys, yt, mus, mut
+def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.2, seed=None):
+    rng = np.random.default_rng(seed)
+    shift = 2
 
+    centers_t = random_3_points(dim=dim, delta=delta)
+    centers_s = centers_t + shift
+    Xs = []
+    ys = []
+    mus = []
+    Sigma = np.array([[rho**abs(i-j) for j in range(dim)] for i in range(dim)])
+    for i, center in enumerate(centers_s):
+        cluster_points = rng.normal(loc=center, scale=Sigma, size=(ns, dim))
+        Xs.append(cluster_points)
+        ys.append(np.full(ns, i))
+        for _ in range(ns):
+            mus.append(center.copy())
+    mus = np.array(mus)
+    Xs = np.vstack(Xs)
+    ys = np.concatenate(ys)
+
+    Xt = []
+    yt = []
+    mut = []
+    for i, center in enumerate(centers_t):
+        cluster_points = rng.normal(loc=center, scale=Sigma, size=(nt, dim))
+        Xt.append(cluster_points)
+        yt.append(np.full(nt, i))
+        for _ in range(nt):
+            mut.append(center.copy())
+    mut = np.array(mut)
+
+    Xt = np.vstack(Xt)
+    yt = np.concatenate(yt)
+
+    # Shuffle source
+    idx_s = rng.permutation(len(Xs))
+    Xs = Xs[idx_s]
+    ys = ys[idx_s]
+    mus = mus[idx_s]
+    # Shuffle target with same permutation
+    idx_t = idx_s[:len(Xt)]
+    Xt = Xt[idx_t]
+    yt = yt[idx_t]
+    mut = mut[idx_t]
+
+    return Xs, Xt, ys, yt, mus, mut
 
 
 if __name__ == "__main__":
 
     
     # Example usage
-    X, y = random_3_clusters(dim=10, delta=5, n_per_cluster=1000, cluster_std=[0.5,1,2])
+    X, y = random_3_clusters_correlate(ns=10,nt=5, dim=2, delta = 10, rho = 0.2)
     print("X shape:", X.shape)
     print("y shape:", y.shape)
     # plt.scatter(X[:,0], X[:,1], c=y, cmap="viridis", s=30, alpha=0.7)
