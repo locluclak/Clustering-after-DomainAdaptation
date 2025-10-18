@@ -38,12 +38,8 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251015-220600-delta2")
-#20251012-171934-delta10
-#20251012-221630-delta8
-#20251013-221745-delta6
-#20251015-143803-delta4
-#20251015-220600-delta2
+final_model.load_model("logs\\20251012-221630-delta8")
+
 # def conditional_power(M, )
 
 def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
@@ -139,13 +135,8 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
             idx_cluster_c1 = np.argwhere(labels_all_z[-1][ns:] == c1).flatten()
             idx_cluster_c2 = np.argwhere(labels_all_z[-1][ns:] == c2).flatten()
 
-            # print("sign obs",signobs.reshape(1,-1))
-            # print("sign z",sign_z.reshape(1,-1))
-            # print(np.array_equal(signobs, sign_z))
-            # print("\nz:",z)
             if np.array_equal(c1_obs, idx_cluster_c1) and np.array_equal(c2_obs, idx_cluster_c2) and np.array_equal(signobs, sign_z):
                 Z = util.interval_union(Z, oc)
-                # print(oc)
                 countitv+=1
             # if 1:
             #     print("sign obs",signobs.reshape(1,-1))
@@ -162,7 +153,6 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
         with open(log, "a") as f:
             f.write(f"Number of intervals: {countitv}\n\n")
             f.write(f"Final interval: {Z}\n")
-    # print("Final interval:", Z)
     return Z
 
 def test_statistic_permutationtest(Xt, idx_cluster_c1, idx_cluster_c2):
@@ -231,46 +221,25 @@ def vec(A):
     return vec.reshape(-1,1)
 
 
-def run(mu_s, mu_t, K, device,_=None):
+def parametric_test(Xs, Xt, Sigma, K, device, _=None):
     global final_model
     dataseed = _ #random.randint(0, 2**32 - 1)
     # print("Data seed:", dataseed)
-    # ---- Generate synthetic data ----
-    # try:
-    global ns, nt, d
 
-    # dataset = gendata.gen_domain_adaptation_data2(
-    #     ns=ns,
-    #     nt=nt,
-    #     n_features=d,
-    #     dist=3,
-    #     std_source=0.5,
-    #     std_target=1,
-    #     shift=2,
-    #     random_state=_,
-    # )
-    # Xs, Ys, _1 = dataset["source"]
-    # Xt, Yt, _2 = dataset["target"]
-    delta = 2
-    Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
+    # global ns, nt, d
 
-
-    # # print(Ys.shape)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
-
 
     d = Xs.shape[1]
     n = ns + nt
 
     Xs_torch = torch.from_numpy(Xs).double().to(device)
     Xt_torch = torch.from_numpy(Xt).double().to(device)
-    # print(Xt_torch.device)  
+
     with torch.no_grad():
         xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
         xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
-
     
     Xs_vec = vec(Xs)
     Xt_vec = vec(Xt)
@@ -279,25 +248,25 @@ def run(mu_s, mu_t, K, device,_=None):
     X_transformed = np.vstack((xs_hat, xt_hat))
 
     initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
-    # print(labels_all_obs)
-    labelkmean = labels_all_obs[-1][ns:]
-    print("ari",adjusted_rand_score(Yt, labelkmean))
-    Sigma = np.identity(n*d)
+
+    # labelkmean = labels_all_obs[-1][ns:]
+    # print("ari",adjusted_rand_score(Yt, labelkmean))
+    # Sigma = np.identity(n*d)
     try:
         a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
         
     except Exception as e:
         print("test statistic is none", e) 
         return None
-    print(mut.shape)
-    print(mut[c1_obs].shape)
-    print(mut[c2_obs].shape)
+    # print(mut.shape)
+    # print(mut[c1_obs].shape)
+    # print(mut[c2_obs].shape)
 
-    check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
-    # print(check_h1)
-    if abs(check_h1) < 0.01:
-        print("Incorrect cluster", check_h1)
-        return None
+    # check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
+    # # print(check_h1)
+    # if abs(check_h1) < 0.01:
+    #     print("Incorrect cluster", check_h1)
+    #     return None
     # for k in [c1,c2]:
     #     cluster_mask = (labelkmean == k).astype(int)
     #     true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
@@ -320,30 +289,138 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # final_interval = parametric(final_model, 
-    #                             X_origin, 
-    #                             a_2d, 
-    #                             b_2d,
-    #                             eta_tmp,
-    #                             np_wdgrl, 
-    #                             K, c1, c2, c1_obs, c2_obs, 
-    #                             signobs = sign, 
-    #                             zmin=-20*std, zmax=20*std,
-    #                               seed=dataseed)
-    final_interval = [(-np.inf, np.inf)]
+    final_interval = parametric(final_model, 
+                                X_origin, 
+                                a_2d, 
+                                b_2d,
+                                eta_tmp,
+                                np_wdgrl, 
+                                K, c1, c2, c1_obs, c2_obs, 
+                                signobs = sign, 
+                                zmin=-20*std, zmax=20*std,
+                                  seed=dataseed)
+    # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
-    print("Final interval",final_interval)
+    # print("Final interval",final_interval)
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
-
-    with open(f'logs/selective_inference_log/TPRnaive_p_valueslist_delta{delta}.txt', 'a') as f:
-        f.write(f"{selective_p_value}\n")
     return selective_p_value
-    # except Exception as e:
-    #     print("Error during run:", e)
-    #     # print("Data seed:", dataseed)
-    #     return None
+
+
+def oc_test(Xs, Xt, Sigma, K, device, _=None):
+    global final_model
+
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+
+    d = Xs.shape[1]
+    n = ns + nt
+
+    Xs_torch = torch.from_numpy(Xs).double().to(device)
+    Xt_torch = torch.from_numpy(Xt).double().to(device)
+
+    with torch.no_grad():
+        xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
+        xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+    
+    Xs_vec = vec(Xs)
+    Xt_vec = vec(Xt)
+    X_vec = np.vstack((Xs_vec, Xt_vec))
+    X_origin = np.vstack((Xs, Xt))
+    X_transformed = np.vstack((xs_hat, xt_hat))
+
+    initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
+    try:
+        a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()    
+    except Exception as e:
+        print("test statistic is none", e) 
+        return None
+    a_2d = a.reshape(n, d)
+    b_2d = b.reshape(n, d)
+
+    np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
+    # final_model.encoder = final_model.encoder.to(device)
+
+
+
+    final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # final_interval = [(-np.inf, np.inf)]
+    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    return selective_p_value
+
+
+def naive_test(Xs, Xt, Sigma, K, device, _=None):
+    global final_model
+
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+
+    d = Xs.shape[1]
+    n = ns + nt
+
+    Xs_torch = torch.from_numpy(Xs).double().to(device)
+    Xt_torch = torch.from_numpy(Xt).double().to(device)
+
+    with torch.no_grad():
+        xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
+        xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+    
+    Xs_vec = vec(Xs)
+    Xt_vec = vec(Xt)
+    X_vec = np.vstack((Xs_vec, Xt_vec))
+    X_origin = np.vstack((Xs, Xt))
+    X_transformed = np.vstack((xs_hat, xt_hat))
+
+    initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
+    try:
+        a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()    
+    except Exception as e:
+        print("test statistic is none", e) 
+        return None
+    # a_2d = a.reshape(n, d)
+    # b_2d = b.reshape(n, d)
+
+    final_interval = [(-np.inf, np.inf)]
+    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    return selective_p_value
+
+
+def permutation_test(Xs, Xt, Sigma, K, device, _=None):
+    global final_model
+    
+    ns = Xs.shape[0]
+    nt = Xt.shape[0]
+
+    d = Xs.shape[1]
+    n = ns + nt
+
+    Xs_torch = torch.from_numpy(Xs).double().to(device)
+    Xt_torch = torch.from_numpy(Xt).double().to(device)
+
+    with torch.no_grad():
+        xs_hat = final_model.extract_feature(Xs_torch).cpu().numpy()
+        xt_hat = final_model.extract_feature(Xt_torch).cpu().numpy()
+    
+    Xs_vec = vec(Xs)
+    Xt_vec = vec(Xt)
+    X_vec = np.vstack((Xs_vec, Xt_vec))
+    X_origin = np.vstack((Xs, Xt))
+    X_transformed = np.vstack((xs_hat, xt_hat))
+
+    initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
+    try:
+        a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
+        
+    except Exception as e:
+        print("test statistic is none", e) 
+        return None
+
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    print("permutation test p-value:", permutation_test_pvalue)
+    return permutation_test_pvalue
 
 import argparse
 if __name__ == "__main__":
@@ -358,11 +435,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    for i in range(args.start, args.end + 1):
-        print(f"\n--- Iteration {i}/{args.end} ---")
-        p_value = run(mu_s, mu_t, K, device, i)
-        if p_value is not None:
-            list_p_values.append(p_value)
+    # for i in range(args.start, args.end + 1):
+    #     print(f"\n--- Iteration {i}/{args.end} ---")
+    #     p_value = run(mu_s, mu_t, K, device, i)
+    #     if p_value is not None:
+    #         list_p_values.append(p_value)
 
     # print("Running time:", time.time() - st, "(s)")
     # underalpha = sum(1 for p in list_p_values if p <= 0.05)
