@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251012-221630-delta8")
+final_model.load_model("logs\\20251017-220747-delta8-rho0.2")
 
 # def conditional_power(M, )
 
@@ -248,8 +248,9 @@ def run(mu_s, mu_t, K, device,_=None):
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
     delta = 8
-    Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
+    rho = 0.2
+    Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
+                                             delta=delta, rho=rho,seed=dataseed)
 
 
     # # print(Ys.shape)
@@ -333,7 +334,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:

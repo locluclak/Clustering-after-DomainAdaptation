@@ -99,8 +99,8 @@ def train_model(
     plt.close()
 
 
-    xs_hat = final_model.extract_feature(xs.cuda())
-    xt_hat = final_model.extract_feature(xt.cuda())
+    xs_hat = final_model.extract_feature(xs)
+    xt_hat = final_model.extract_feature(xt)
     xs_hat = xs_hat.cpu().numpy()
     xt_hat = xt_hat.cpu().numpy()
     # print("Xs",np.mean(xs_hat, axis=1))
@@ -133,8 +133,8 @@ if __name__ == "__main__":
     # n_clusters = 2
     # mu_s = np.full((ns,d),2)
     # mu_t = np.full((nt,d),0)
-    Xs, Xt,Ys,Yt = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=2, cluster_std=[0.25, 0.5, 1],seed=1)
+    Xs, Xt,Ys,Yt, _, _ = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
+                                             delta=10, rho = 0.2,seed=1)
 
 
     # print(Ys.shape)

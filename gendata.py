@@ -738,7 +738,7 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     mus = []
     Sigma = np.array([[rho**abs(i-j) for j in range(dim)] for i in range(dim)])
     for i, center in enumerate(centers_s):
-        cluster_points = rng.normal(loc=center, scale=Sigma, size=(ns, dim))
+        cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=ns)
         Xs.append(cluster_points)
         ys.append(np.full(ns, i))
         for _ in range(ns):
@@ -751,7 +751,7 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     yt = []
     mut = []
     for i, center in enumerate(centers_t):
-        cluster_points = rng.normal(loc=center, scale=Sigma, size=(nt, dim))
+        cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=nt)
         Xt.append(cluster_points)
         yt.append(np.full(nt, i))
         for _ in range(nt):
@@ -766,12 +766,11 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     Xs = Xs[idx_s]
     ys = ys[idx_s]
     mus = mus[idx_s]
-    # Shuffle target with same permutation
-    idx_t = idx_s[:len(Xt)]
+    # Shuffle target
+    idx_t = rng.permutation(len(Xt))
     Xt = Xt[idx_t]
     yt = yt[idx_t]
     mut = mut[idx_t]
-
     return Xs, Xt, ys, yt, mus, mut
 
 
@@ -779,9 +778,15 @@ if __name__ == "__main__":
 
     
     # Example usage
-    X, y = random_3_clusters_correlate(ns=10,nt=5, dim=2, delta = 10, rho = 0.2)
-    print("X shape:", X.shape)
-    print("y shape:", y.shape)
+    Xs, Xt, ys, yt, mus, mut = random_3_clusters(ns=10,nt=5, dim=2, delta = 10, seed = 1)
+    print("X shape:", Xs.shape, Xt.shape)
+    print("y shape:", ys.shape, yt.shape)
+    
+    print(*Xs, sep = "\n")
+    print('----')
+    print(*Xt, sep = "\n")
+    print(yt)
+    
     # plt.scatter(X[:,0], X[:,1], c=y, cmap="viridis", s=30, alpha=0.7)
     # plt.axis("equal")
     # plt.show()
@@ -789,7 +794,7 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(X[:,0], X[:,1], X[:,2], c=y, cmap="viridis", s=30, alpha=0.7)
+    ax.scatter(Xs[:,0], Xs[:,1], c=ys, cmap="viridis", s=30, alpha=0.7)
     plt.show()
     # fine = 0
     # notfine = 0
