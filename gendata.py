@@ -675,9 +675,9 @@ def random_3_points(dim=2, delta: float=1):
     p2 = np.zeros(dim)
     p3 = np.zeros(dim)
 
-    p2[1] = delta
+    p2[0] = delta
     p3[0] = delta/2
-    p3[0] = np.sqrt(3)/2 *delta 
+    p3[1] = np.sqrt(3)/2 *delta 
 
     points = np.array([p1,p2,p3])
     return points
