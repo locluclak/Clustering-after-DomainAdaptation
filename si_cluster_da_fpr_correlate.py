@@ -7,7 +7,6 @@ import time
 from tqdm import tqdm
 import random
 from gpu_accelerate import operations, conditioning
-from sklearn.metrics import adjusted_rand_score
 
 import utils.construct_interval as construct_interval
 from utils.kmeans import kmeans
@@ -16,7 +15,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 150, 50, 10
+ns, nt, d = 250, 50, 20
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -27,6 +26,7 @@ with open("config.yaml", "r") as f:
 
 exp_cfg = config["experiment"]
 model_cfg = config["model"]
+
 seed = exp_cfg["seed"]
 final_model = WDGRL(
     input_dim=d,
@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251017-220747-delta8-rho0.2")
+final_model.load_model("trained_model/20250927-154452-20dims")
 
 # def conditional_power(M, )
 
@@ -97,13 +97,11 @@ def overconditioning(model, X,eta, a, b, np_wdgrl, n_clusters, initial_centroids
         interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
         interval_da = [interval_da]
 
-    interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+    interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # interval_kmean = construct_interval.KMeanconditionCUPY(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_test_statistic = construct_interval.statistic_condition(eta, vec(a[ns:]), vec(b[ns:]), vec(X[ns:]))
-    # print("interval_da", interval_da)
-    # print("interval_kmean", interval_kmean)
-    # print("interval_test_statistic", interval_test_statistic)
+
     final_interval = util.interval_intersection(interval_test_statistic,
                       util.interval_intersection(interval_da, interval_kmean))
     return final_interval
@@ -233,31 +231,10 @@ def run(mu_s, mu_t, K, device,_=None):
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
-    global ns, nt, d
-
-    # dataset = gendata.gen_domain_adaptation_data2(
-    #     ns=ns,
-    #     nt=nt,
-    #     n_features=d,
-    #     dist=3,
-    #     std_source=0.5,
-    #     std_target=1,
-    #     shift=2,
-    #     random_state=_,
-    # )
-    # Xs, Ys, _1 = dataset["source"]
-    # Xt, Yt, _2 = dataset["target"]
-    delta = 8
-    rho = 0.2
-    Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=delta, rho=rho,seed=dataseed)
-
-
-    # # print(Ys.shape)
+    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
+    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
-
-
     d = Xs.shape[1]
     n = ns + nt
 
@@ -277,35 +254,17 @@ def run(mu_s, mu_t, K, device,_=None):
 
     initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
     # print(labels_all_obs)
-    labelkmean = labels_all_obs[-1][ns:]
-    print("ari",adjusted_rand_score(Yt, labelkmean))
     Sigma = np.identity(n*d)
     try:
         a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
-        
     except Exception as e:
         print("test statistic is none", e) 
         return None
-    print(mut.shape)
-    print(mut[c1_obs].shape)
-    print(mut[c2_obs].shape)
-
-    check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
-    # print(check_h1)
-    if abs(check_h1) < 1e-8:
-        print("Incorrect cluster", check_h1)
-        return None
-    # for k in [c1,c2]:
-    #     cluster_mask = (labelkmean == k).astype(int)
-    #     true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
-    #     ari = adjusted_rand_score(true_mask, cluster_mask)
-    #     if ari <0.95:
-    #         return None
-    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    # print(permutation_test_pvalue)
-    # with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
-    #     f.write(f"{permutation_test_pvalue}\n")
-    # return permutation_test_pvalue
+    
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
+        f.write(f"{permutation_test_pvalue}\n")
+    return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
 
@@ -313,7 +272,6 @@ def run(mu_s, mu_t, K, device,_=None):
     # final_model.encoder = final_model.encoder.to(device)
 
 
-    std = np.sqrt(etaT_Sigma_eta)
 
 
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
@@ -325,8 +283,7 @@ def run(mu_s, mu_t, K, device,_=None):
                                 np_wdgrl, 
                                 K, c1, c2, c1_obs, c2_obs, 
                                 signobs = sign, 
-                                zmin=-20*std, zmax=20*std,
-                                  seed=dataseed)
+                                zmin=-20, zmax=20,seed=dataseed)
     # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
@@ -334,7 +291,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}_rho{rho}_2.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/FPRpara_p_valueslist{ns}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
@@ -355,7 +312,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-
     for i in range(args.start, args.end + 1):
         print(f"\n--- Iteration {i}/{args.end} ---")
         p_value = run(mu_s, mu_t, K, device, i)
@@ -369,7 +325,7 @@ if __name__ == "__main__":
     # # Kiểm định thống kê
     # kstest = stats.kstest(list_p_values, 'uniform')
     # print(kstest)
-    # Hiển thị histogram
+    # # Hiển thị histogram
     # plt.hist(list_p_values)
     # plt.show()
     # plt.savefig('logs/selective_inference_log/p_values_histogram.png')

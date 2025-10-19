@@ -637,6 +637,15 @@ def sample_normal_data(mu, sigma, n_samples=1, random_state=None):
         return samples[0]  # return (n, q) matrix
     return samples
 
+def sample_normal_data_correlate(mu, rho, random_state=None):
+    rng = np.random.default_rng(random_state)
+    n, q = mu.shape
+    mean = np.zeros((q,))
+    Sigma = np.array([[rho**abs(i-j) for j in range(q)] for i in range(q)])
+    noise = rng.multivariate_normal(mean=mean, cov=Sigma, size=n)
+    samples = mu + noise
+    return samples
+
 
 from sklearn.cluster import KMeans
 
@@ -778,14 +787,22 @@ if __name__ == "__main__":
 
     
     # Example usage
-    Xs, Xt, ys, yt, mus, mut = random_3_clusters(ns=10,nt=5, dim=2, delta = 10, seed = 1)
-    print("X shape:", Xs.shape, Xt.shape)
-    print("y shape:", ys.shape, yt.shape)
+    ns, nt, d = 50, 5, 2
+    K = 3
+    mu_s = np.full((ns, d), 2)
+    mu_t = np.full((nt, d), 0)
+    rho = 0.2
+    Xs, Xt, ys, yt, mus, mut = random_3_clusters(ns=10,nt=5, dim=2, delta = 0, seed = 1)
+    # Xs = sample_normal_data_correlate(mu_s, rho, random_state=None)
+    # Xt = sample_normal_data_correlate(mu_t, rho, random_state=None)
     
-    print(*Xs, sep = "\n")
-    print('----')
-    print(*Xt, sep = "\n")
+    print("X shape:", Xs.shape, Xt.shape)
+    print("y shape", ys.shape, yt.shape)
     print(yt)
+    # print(*Xs, sep = "\n")
+    # print('----')
+    # print(*Xt, sep = "\n")
+
     
     # plt.scatter(X[:,0], X[:,1], c=y, cmap="viridis", s=30, alpha=0.7)
     # plt.axis("equal")
@@ -794,7 +811,8 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(Xs[:,0], Xs[:,1], c=ys, cmap="viridis", s=30, alpha=0.7)
+    # ax.scatter(Xs[:,0], Xs[:,1], c=ys, cmap="viridis", s=30, alpha=0.7)
+    ax.scatter(Xs[:,0], Xs[:,1])
     plt.show()
     # fine = 0
     # notfine = 0
