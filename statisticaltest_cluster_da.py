@@ -15,36 +15,14 @@ import utils.util as util
 import gendata
 from models.wdgrl import WDGRL
 
-
-ns, nt, d = 150, 50, 10
-K = 3
-mu_s = np.full((ns, d), 2)
-mu_t = np.full((nt, d), 0)
 device = "cpu"
-
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
-exp_cfg = config["experiment"]
-model_cfg = config["model"]
-seed = exp_cfg["seed"]
-final_model = WDGRL(
-    input_dim=d,
-    encoder_hidden_dims=model_cfg["encoder_hidden_dims"],
-    critic_hidden_dims=model_cfg["critic_hidden_dims"],
-    alpha1=model_cfg["alpha1"],
-    alpha2=model_cfg["alpha2"],
-    seed=exp_cfg["model_random_state"],
-    device=device,
-)
-
-final_model.load_model("logs\\20251012-221630-delta8")
-
 # def conditional_power(M, )
 
-def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
-
-    c1, c2 = np.random.choice(n_clusters, 2, replace=False)
+def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False, pair=None):
+    if pair is not None:
+        c1, c2 = pair
+    else:
+        c1, c2 = np.random.choice(n_clusters, 2, replace=False)
     idx_cluster_c1 = np.argwhere(labels_all_obs[-1][ns:] == c1).flatten()
     idx_cluster_c2 = np.argwhere(labels_all_obs[-1][ns:] == c2).flatten()
     if idx_cluster_c1.size == 0 or idx_cluster_c2.size == 0:
@@ -90,25 +68,18 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
         "sign": sign
     }
 
-def overconditioning(model, X,eta, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
-    if device == "cpu":
-        interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
-    else:        
-        interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
-        interval_da = [interval_da]
+def overconditioning(model, X,ns , eta, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs,z=0,X_=None):
+    interval_da, a_, b_ = construct_interval.ReLUcondition(model.encoder, a, b, X)
 
-    interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
+    interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs,z)
     # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # interval_kmean = construct_interval.KMeanconditionCUPY(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_test_statistic = construct_interval.statistic_condition(eta, vec(a[ns:]), vec(b[ns:]), vec(X[ns:]))
-    # print("interval_da", interval_da)
-    # print("interval_kmean", interval_kmean)
-    # print("interval_test_statistic", interval_test_statistic)
+
     final_interval = util.interval_intersection(interval_test_statistic,
                       util.interval_intersection(interval_da, interval_kmean))
     return final_interval
-def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, signobs, zmin = -20, zmax = 20, log=None, seed=None):
-    global device
+def parametric(model, X,ns, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs, signobs, zmin = -20, zmax = 20, log=None, seed=None,device="cpu"):
     n, d = X.shape
     z =  zmin
     zmax = zmax
@@ -131,7 +102,7 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
             # print("sum xt",np.sum(Xdeltaz[ns:]))
             # sign_z = test_statistic(vec(Xdeltaz), Xdeltaz[ns:], ns, nt, d, n_clusters, Sigma=None, labels_all_obs=labels_all_z,return_sign=True)
             sign_z = np.sign(eta.T.dot(vec(Xdeltaz[ns:])))
-            oc = overconditioning(model, Xdeltaz, eta, a, b, np_wdgrl, n_clusters, initial_centroids_z, labels_all_z, members_all_obs, z=z,X_=Xdeltaz_transformed)
+            oc = overconditioning(model, Xdeltaz,ns, eta, a, b, np_wdgrl, n_clusters, initial_centroids_z, labels_all_z, z=z,X_=Xdeltaz_transformed)
             idx_cluster_c1 = np.argwhere(labels_all_z[-1][ns:] == c1).flatten()
             idx_cluster_c2 = np.argwhere(labels_all_z[-1][ns:] == c2).flatten()
 
@@ -155,7 +126,7 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
             f.write(f"Final interval: {Z}\n")
     return Z
 
-def test_statistic_permutationtest(Xt, idx_cluster_c1, idx_cluster_c2):
+def test_statistic_permutationtest(Xt, idx_cluster_c1, idx_cluster_c2,ns,nt,d):
     I_d = np.identity(d)
     
     eta_c1_idx = np.zeros((nt, 1))
@@ -175,7 +146,7 @@ def test_statistic_permutationtest(Xt, idx_cluster_c1, idx_cluster_c2):
 
 
 def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2, 
-                     test_statistic_func, n_permutations=1000, random_state=None):
+                     test_statistic_func, ns, nt, d, n_permutations=1000, random_state=None):
     """
     Permutation test for checking if two clusters differ significantly.
         
@@ -191,7 +162,7 @@ def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2,
     rng = np.random.default_rng(random_state)
 
     # observed test statistic
-    observed_stat = test_statistic_func(Xt, idx_cluster_c1, idx_cluster_c2)
+    observed_stat = test_statistic_func(Xt, idx_cluster_c1, idx_cluster_c2,ns,nt,d)
 
     # combine indices and labels
     all_indices = np.concatenate([idx_cluster_c1, idx_cluster_c2])
@@ -205,7 +176,7 @@ def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2,
         perm_idx1 = all_indices[:n1]
         perm_idx2 = all_indices[n1:]
         
-        permuted_stats[i] = test_statistic_func(Xt, perm_idx1, perm_idx2)
+        permuted_stats[i] = test_statistic_func(Xt, perm_idx1, perm_idx2,ns,nt,d)
 
     # two-sided p-value
     p_value = np.mean(np.abs(permuted_stats) >= np.abs(observed_stat))
@@ -221,10 +192,7 @@ def vec(A):
     return vec.reshape(-1,1)
 
 
-def parametric_test(Xs, Xt, Sigma, K, device, _=None):
-    global final_model
-    dataseed = _ #random.randint(0, 2**32 - 1)
-    # print("Data seed:", dataseed)
+def parametric_test(final_model, Xs, Xt, Sigma, K, device, _=None):
 
     # global ns, nt, d
 
@@ -290,7 +258,7 @@ def parametric_test(Xs, Xt, Sigma, K, device, _=None):
 
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
     final_interval = parametric(final_model, 
-                                X_origin, 
+                                X_origin, ns, 
                                 a_2d, 
                                 b_2d,
                                 eta_tmp,
@@ -298,7 +266,7 @@ def parametric_test(Xs, Xt, Sigma, K, device, _=None):
                                 K, c1, c2, c1_obs, c2_obs, 
                                 signobs = sign, 
                                 zmin=-20*std, zmax=20*std,
-                                  seed=dataseed)
+                                )
     # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
@@ -308,8 +276,8 @@ def parametric_test(Xs, Xt, Sigma, K, device, _=None):
     return selective_p_value
 
 
-def oc_test(Xs, Xt, Sigma, K, device, _=None):
-    global final_model
+def oc_test(final_model, Xs, Xt, Sigma, K, device, _=None):
+    # global final_model
 
     ns = Xs.shape[0]
     nt = Xt.shape[0]
@@ -344,7 +312,7 @@ def oc_test(Xs, Xt, Sigma, K, device, _=None):
 
 
 
-    final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    final_interval = overconditioning(final_model, X_origin,ns, eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs,z=etaTX, X_=X_transformed)
     # final_interval = [(-np.inf, np.inf)]
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
@@ -388,9 +356,8 @@ def naive_test(Xs, Xt, Sigma, K, device, _=None):
     return selective_p_value
 
 
-def permutation_test(Xs, Xt, Sigma, K, device, _=None):
-    global final_model
-    
+def permu_test(final_model, Xs, Xt, Sigma, K, device, _=None):
+
     ns = Xs.shape[0]
     nt = Xt.shape[0]
 
@@ -418,7 +385,7 @@ def permutation_test(Xs, Xt, Sigma, K, device, _=None):
         print("test statistic is none", e) 
         return None
 
-    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest, ns = ns, nt = nt, d = d)["p_value"]
     print("permutation test p-value:", permutation_test_pvalue)
     return permutation_test_pvalue
 

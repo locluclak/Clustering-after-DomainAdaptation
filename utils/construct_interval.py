@@ -166,7 +166,7 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all,z=0):
     return trunc_interval
 
 
-def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all, z=0):
+def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all = None, z=0):
     trunc_interval = [(-np.inf, np.inf)]
 
     # A, B shape n x d
