@@ -295,7 +295,7 @@ def run(mu_s, mu_t, K, device,_=None):
 
     check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
     # print(check_h1)
-    if abs(check_h1) < 0.01:
+    if abs(check_h1) < 1e-8:
         print("Incorrect cluster", check_h1)
         return None
     # for k in [c1,c2]:
@@ -320,24 +320,24 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # final_interval = parametric(final_model, 
-    #                             X_origin, 
-    #                             a_2d, 
-    #                             b_2d,
-    #                             eta_tmp,
-    #                             np_wdgrl, 
-    #                             K, c1, c2, c1_obs, c2_obs, 
-    #                             signobs = sign, 
-    #                             zmin=-20*std, zmax=20*std,
-    #                               seed=dataseed)
-    final_interval = [(-np.inf, np.inf)]
+    final_interval = parametric(final_model, 
+                                X_origin, 
+                                a_2d, 
+                                b_2d,
+                                eta_tmp,
+                                np_wdgrl, 
+                                K, c1, c2, c1_obs, c2_obs, 
+                                signobs = sign, 
+                                zmin=-20*std, zmax=20*std,
+                                  seed=dataseed)
+    # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
-    print("Final interval",final_interval)
+    # print("Final interval",final_interval)
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRnaive_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
