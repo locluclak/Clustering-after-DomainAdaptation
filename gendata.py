@@ -684,9 +684,9 @@ def random_3_points(dim=2, delta: float=1):
     p2 = np.zeros(dim)
     p3 = np.zeros(dim)
 
-    p2[1] = delta
+    p2[0] = delta
     p3[0] = delta/2
-    p3[0] = np.sqrt(3)/2 *delta 
+    p3[1] = np.sqrt(3)/2 *delta 
 
     points = np.array([p1,p2,p3])
     return points
@@ -787,12 +787,12 @@ if __name__ == "__main__":
 
     
     # Example usage
-    ns, nt, d = 50, 5, 2
+    ns, nt, d = 150, 50, 10
     K = 3
     mu_s = np.full((ns, d), 2)
     mu_t = np.full((nt, d), 0)
     rho = 0.2
-    Xs, Xt, ys, yt, mus, mut = random_3_clusters(ns=10,nt=5, dim=2, delta = 0, seed = 1)
+    Xs, Xt, ys, yt, mus, mut = random_3_clusters_correlate(ns=10,nt=5, dim=2, delta = 8, rho = 0.2, seed = 1)
     # Xs = sample_normal_data_correlate(mu_s, rho, random_state=None)
     # Xt = sample_normal_data_correlate(mu_t, rho, random_state=None)
     
@@ -811,8 +811,8 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
-    # ax.scatter(Xs[:,0], Xs[:,1], c=ys, cmap="viridis", s=30, alpha=0.7)
-    ax.scatter(Xs[:,0], Xs[:,1])
+    ax.scatter(Xs[:,0], Xs[:,1], c=ys, cmap="viridis", s=30, alpha=0.7)
+    #ax.scatter(Xs[:,0], Xs[:,1])
     plt.show()
     # fine = 0
     # notfine = 0

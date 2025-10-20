@@ -76,7 +76,7 @@ def train_model(
     # save model
     # get time for save model
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    saved_model_dir = os.path.join("trained_model", f"{timestamp}-{d}dims")
+    saved_model_dir = os.path.join("logs", f"{timestamp}-{d}dims--rho{rho}--fpr")
     os.makedirs(saved_model_dir, exist_ok=True)
     final_model.save_model(saved_model_dir)
 
@@ -99,8 +99,8 @@ def train_model(
     plt.close()
 
 
-    xs_hat = final_model.extract_feature(xs.cuda())
-    xt_hat = final_model.extract_feature(xt.cuda())
+    xs_hat = final_model.extract_feature(xs)
+    xt_hat = final_model.extract_feature(xt)
     xs_hat = xs_hat.cpu().numpy()
     xt_hat = xt_hat.cpu().numpy()
     # print("Xs",np.mean(xs_hat, axis=1))
@@ -129,25 +129,23 @@ def train_model(
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 500, 100, 20
+    ns, nt, d = 150, 50, 10
+    K = 3
+    mu_s = np.full((ns, d), 2)
+    mu_t = np.full((nt, d), 0)
+    rho = 0.4
     # n_clusters = 2
     # mu_s = np.full((ns,d),2)
     # mu_t = np.full((nt,d),0)
-    Xs, Xt,Ys,Yt = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=2, cluster_std=[0.25, 0.5, 1],seed=1)
+    Xs = gendata.sample_normal_data_correlate(mu_s, rho)
+    Xt = gendata.sample_normal_data_correlate(mu_t, rho)
 
 
     # print(Ys.shape)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
 
-    Xs = Xs[:ns//2]
-    Xt = Xt[:nt//2]
-    Ys = Ys[:ns//2]
-    Yt = Yt[:nt//2]
-
-    ns = Xs.shape[0]
-    nt = Xt.shape[0]
+    
     # Xs = gendata.sample_normal_data(mu=mu_s, sigma=1,random_state=42)
     # Xt = gendata.sample_normal_data(mu=mu_t, sigma=1,random_state=42)
 
