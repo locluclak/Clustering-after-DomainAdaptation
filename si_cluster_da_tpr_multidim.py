@@ -38,12 +38,12 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251015-220600-delta2")
-#20251012-171934-delta10
-#20251012-221630-delta8
-#20251013-221745-delta6
-#20251015-143803-delta4
-#20251015-220600-delta2
+final_model.load_model("logs\\20251012-221630-delta8")
+#20251020-092155-delta10
+#20251020-091933-delta8
+#20251020-091713-delta6
+#20251020-091138-delta4\\early_model
+#20251020-090150-delta2
 # def conditional_power(M, )
 
 def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
@@ -233,7 +233,7 @@ def vec(A):
 
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    dataseed = _ #random.randint(0, 2**32 - 1)
+    dataseed = 114 #random.randint(0, 2**32 - 1)
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
@@ -251,7 +251,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 2
+    delta = 8
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
 

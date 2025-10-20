@@ -27,7 +27,7 @@ X_target = pd.read_csv("obesitylevel/gender1_test.csv")
 X_source = X_source.to_numpy(dtype=np.float64)
 X_target = X_target.to_numpy(dtype=np.float64)
 
-iterations = 10
+iterations = 30
 log_dir = "logs/selective_inference_log/log_realdata/obesity"
 
 for i in range(iterations):
