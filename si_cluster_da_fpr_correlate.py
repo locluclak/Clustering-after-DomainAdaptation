@@ -15,10 +15,11 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 250, 50, 20
+ns, nt, d = 200, 50, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
+rho = 0.2
 device = "cpu"
 
 with open("config.yaml", "r") as f:
@@ -38,7 +39,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("trained_model/20250927-154452-20dims")
+final_model.load_model("logs\\20251019-031037-10dims--rho0.2--fpr")
 
 # def conditional_power(M, )
 
@@ -231,8 +232,8 @@ def run(mu_s, mu_t, K, device,_=None):
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
-    Xs = gendata.sample_normal_data(mu=mu_s, sigma=1, random_state=dataseed)
-    Xt = gendata.sample_normal_data(mu=mu_t, sigma=1, random_state=dataseed)
+    Xs = gendata.sample_normal_data_correlate(mu=mu_s, rho = rho, random_state=dataseed)
+    Xt = gendata.sample_normal_data_correlate(mu=mu_t, rho = rho, random_state=dataseed)
     ns = Xs.shape[0]
     nt = Xt.shape[0]
     d = Xs.shape[1]
@@ -262,9 +263,9 @@ def run(mu_s, mu_t, K, device,_=None):
         return None
     
     permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist_rho{rho}.txt', 'a') as f:
         f.write(f"{permutation_test_pvalue}\n")
-    return permutation_test_pvalue
+    #return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
 
@@ -291,7 +292,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/FPRpara_p_valueslist{ns}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/FPRpara_p_valueslist_rho{rho}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
