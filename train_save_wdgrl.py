@@ -76,7 +76,7 @@ def train_model(
     # save model
     # get time for save model
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    saved_model_dir = os.path.join("logs", f"{timestamp}-{d}dims--rho{rho}--fpr")
+    saved_model_dir = os.path.join("logs", f"{timestamp}-{d}dims-rho{rho}-fpr")
     os.makedirs(saved_model_dir, exist_ok=True)
     final_model.save_model(saved_model_dir)
 
@@ -129,11 +129,11 @@ def train_model(
     return final_model
 
 if __name__ == "__main__":
-    ns, nt, d = 150, 50, 10
+    ns, nt, d = 2000, 500, 10
     K = 3
     mu_s = np.full((ns, d), 2)
     mu_t = np.full((nt, d), 0)
-    rho = 0.8
+    rho = 0.5
     # n_clusters = 2
     # mu_s = np.full((ns,d),2)
     # mu_t = np.full((nt,d),0)
