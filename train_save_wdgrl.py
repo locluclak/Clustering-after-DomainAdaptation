@@ -133,7 +133,7 @@ if __name__ == "__main__":
     K = 3
     mu_s = np.full((ns, d), 2)
     mu_t = np.full((nt, d), 0)
-    rho = 0.4
+    rho = 0.8
     # n_clusters = 2
     # mu_s = np.full((ns,d),2)
     # mu_t = np.full((nt,d),0)

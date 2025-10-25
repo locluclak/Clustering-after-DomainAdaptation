@@ -19,14 +19,15 @@ ns, nt, d = 200, 50, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
-rho = 0.8
-device = "cpu"
+rho = 0.4
 dict_paths = {
     0.2: "logs\\20251019-031037-10dims--rho0.2--fpr",
     0.4: "logs\\20251020-031237-10dims--rho0.4--fpr",
     0.6: "logs\\20251020-165410-10dims--rho0.6--fpr",
     0.8: "logs\\20251021-161052-10dims--rho0.8--fpr",
 }
+device = "cpu"
+
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
@@ -267,9 +268,9 @@ def run(mu_s, mu_t, K, device,_=None):
         print("test statistic is none", e) 
         return None
     
-    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist_rho{rho}.txt', 'a') as f:
-        f.write(f"{permutation_test_pvalue}\n")
+    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    # with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist_rho{rho}.txt', 'a') as f:
+    #     f.write(f"{permutation_test_pvalue}\n")
     #return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
@@ -280,26 +281,35 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
 
-    # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    final_interval = parametric(final_model, 
-                                X_origin, 
-                                a_2d, 
-                                b_2d,
-                                eta_tmp,
-                                np_wdgrl, 
-                                K, c1, c2, c1_obs, c2_obs, 
-                                signobs = sign, 
-                                zmin=-20, zmax=20,seed=dataseed)
-    # final_interval = [(-np.inf, np.inf)]
+    final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # final_interval = parametric(final_model, 
+    #                             X_origin, 
+    #                             a_2d, 
+    #                             b_2d,
+    #                             eta_tmp,
+    #                             np_wdgrl, 
+    #                             K, c1, c2, c1_obs, c2_obs, 
+    #                             signobs = sign, 
+    #                             zmin=-20, zmax=20,seed=dataseed)
+    final_interval2 = [(-np.inf, np.inf)]
     
     # print(etaTX)
     # print("Final interval",final_interval)
-    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    oc_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
 
-    with open(f'logs/selective_inference_log/FPRpara_p_valueslist_rho{rho}.txt', 'a') as f:
-        f.write(f"{selective_p_value}\n")
-    return selective_p_value
+    print(f"test-stat: {etaTX}, p-value:", oc_p_value)
+
+    with open(f'logs/selective_inference_log/FPR_oc_p_valueslist_rho{rho}.txt', 'a') as f:
+        f.write(f"{oc_p_value}\n")
+    
+    naive_p_value = util.compute_p_value(final_interval2, etaTX, etaT_Sigma_eta)
+
+    print(f"test-stat: {etaTX}, p-value:", naive_p_value)
+
+    with open(f'logs/selective_inference_log/FPR_naive_p_valueslist_rho{rho}.txt', 'a') as f:
+        f.write(f"{naive_p_value}\n")
+    
+    return oc_p_value
     # except Exception as e:
     #     print("Error during run:", e)
     #     # print("Data seed:", dataseed)

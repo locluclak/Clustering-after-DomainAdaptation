@@ -19,14 +19,9 @@ ns, nt, d = 200, 50, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
-rho = 0.8
+rho = 0.6
 device = "cpu"
-dict_paths = {
-    0.2: "logs\\20251019-031037-10dims--rho0.2--fpr",
-    0.4: "logs\\20251020-031237-10dims--rho0.4--fpr",
-    0.6: "logs\\20251020-165410-10dims--rho0.6--fpr",
-    0.8: "logs\\20251021-161052-10dims--rho0.8--fpr",
-}
+
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
@@ -44,7 +39,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model(dict_paths[rho])
+final_model.load_model("logs\\20251021-041036-10dims--rho0.6--fpr")
 
 # def conditional_power(M, )
 
