@@ -15,18 +15,18 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 200, 50, 10
+ns, nt, d = 100, 50, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
-rho = 0.8
+rho = 0.5
 device = "cpu"
-dict_paths = {
-    0.2: "logs\\20251019-031037-10dims--rho0.2--fpr",
-    0.4: "logs\\20251020-031237-10dims--rho0.4--fpr",
-    0.6: "logs\\20251020-165410-10dims--rho0.6--fpr",
-    0.8: "logs\\20251021-161052-10dims--rho0.8--fpr",
-}
+# dict_paths = {
+#     0.2: "logs\\20251019-031037-10dims--rho0.2--fpr",
+#     0.4: "logs\\20251020-031237-10dims--rho0.4--fpr",
+#     0.6: "logs\\20251020-165410-10dims--rho0.6--fpr",
+#     0.8: "logs\\20251021-161052-10dims--rho0.8--fpr",
+# }
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
@@ -44,7 +44,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model(dict_paths[rho])
+final_model.load_model("logs\\20251025-163705-10dims-rho0.5-fpr")
 
 # def conditional_power(M, )
 
@@ -268,7 +268,7 @@ def run(mu_s, mu_t, K, device,_=None):
         return None
     
     permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist_rho{rho}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/corr/change_n_rho{rho}/FPRpermutation_p_valueslist_ns{ns}.txt', 'a') as f:
         f.write(f"{permutation_test_pvalue}\n")
     #return permutation_test_pvalue
     a_2d = a.reshape(n, d)
@@ -297,7 +297,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/FPRpara_p_valueslist_rho{rho}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/corr/change_n_rho{rho}/FPRpara_p_valueslist_ns{ns}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
