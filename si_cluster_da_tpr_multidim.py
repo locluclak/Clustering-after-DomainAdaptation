@@ -374,6 +374,7 @@ def run(mu_s, mu_t, K, device,_=None):
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
     with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
