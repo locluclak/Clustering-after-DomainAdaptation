@@ -2,7 +2,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 
 # Sample sizes
-nslist = [2,4,6,8]
+nslist = [4,6,8,10]
 
 # Initialize FPR lists
 FPRnaive = []
@@ -46,7 +46,7 @@ for ns in nslist:
     # FPRnaive.append(sum(p < alpha for p in pvalues) / len(pvalues))
     
     # Permutation method
-    with open(f"logs/selective_inference_log/TPRpermutation_p_valueslist_delta{ns}.txt", "r") as f:
+    with open(f"logs/selective_inference_log/TPRpermutate_p_valueslist_delta{ns}.txt", "r") as f:
         pvalues = [float(line.strip()) for line in f if line.strip()]
     FPRpermutation.append(sum(p < alpha for p in pvalues) / len(pvalues))
     
@@ -56,7 +56,7 @@ for ns in nslist:
     FPRoc.append(sum(p < alpha for p in pvalues) / len(pvalues))
     
     # Parametric method
-    with open(f"logs/selective_inference_log/TPRpara_p_valueslist_delta{ns}.txt", "r") as f:
+    with open(f"logs/selective_inference_log/TPRparametric_p_valueslist_delta{ns}.txt", "r") as f:
         pvalues = [float(line.strip()) for line in f if line.strip()]
     FPRpara.append(sum(p < alpha for p in pvalues) / len(pvalues))
 
@@ -74,5 +74,5 @@ plt.ylabel('True Positive Rate (TPR)')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig('logs/selective_inference_log/TPR_comparison_delta.png')
+plt.savefig('logs/selective_inference_log/TPR_comparison_delta311.png')
 plt.show()

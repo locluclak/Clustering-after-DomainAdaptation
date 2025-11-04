@@ -8,6 +8,7 @@ from tqdm import tqdm
 import random
 from gpu_accelerate import operations, conditioning
 from sklearn.metrics import adjusted_rand_score
+from scipy.linalg import block_diag
 
 import utils.construct_interval as construct_interval
 from utils.kmeans import kmeans
@@ -16,7 +17,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 150, 50, 10
+ns, nt, d = 150, 100, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -38,12 +39,24 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("logs\\20251012-221630-delta8")
-#20251020-092155-delta10
-#20251020-091933-delta8
-#20251020-091713-delta6
-#20251020-091138-delta4\\early_model
-#20251020-090150-delta2
+# final_model.load_model("logs/20251020-092155-delta10")
+# final_model.load_model("logs/20251020-091933-delta8")
+# final_model.load_model("logs/20251020-091713-delta6")
+# final_model.load_model("logs/20251020-091138-delta4/early_model")
+# final_model.load_model("logs/20251020-090150-delta2")
+
+# final_model.load_model("logs/20251028-104112-1layer-delta2")
+# final_model.load_model("logs/20251028-103802-1layer-delta4")
+# final_model.load_model("logs/20251028-103458-1layer-delta6")
+# final_model.load_model("logs/20251028-103208-1layer-delta8")
+final_model.load_model("logs/20251102-185526-delta4")
+
+# 20251102-185403-delta2
+# 20251102-185526-delta4
+# 20251102-185645-delta6
+# 20251102-185748-delta8
+# 20251102-185857-delta10
+
 # def conditional_power(M, )
 
 def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
@@ -131,7 +144,7 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
                 # Xdeltaz_transformed = final_model.extract_feature(Xdeltaz_torch).cpu().numpy()
                 Xdeltaz_transformed = model.extract_feature(Xdeltaz_torch).cpu().numpy()
             initial_centroids_z, labels_all_z, members_all_obs = kmeans(Xdeltaz_transformed, n_clusters)
-            
+
             # print("sum xt",np.sum(Xdeltaz[ns:]))
             # sign_z = test_statistic(vec(Xdeltaz), Xdeltaz[ns:], ns, nt, d, n_clusters, Sigma=None, labels_all_obs=labels_all_z,return_sign=True)
             sign_z = np.sign(eta.T.dot(vec(Xdeltaz[ns:])))
@@ -225,7 +238,22 @@ def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2,
         "p_value": p_value,
         "permuted_stats": permuted_stats
     }
-
+def compute_cov_matrix(sigma1, sigma2, sigma3, mu1, mu2, mu3):
+    d = len(mu1)  # Dimension of feature space
+    pi = 1/3  # Equal cluster proportions
+    mu = np.array([mu1, mu2, mu3])  # Cluster centroids
+    sigma = np.array([sigma1, sigma2, sigma3])  # Cluster variances
+    
+    # Compute diagonal elements of covariance matrix
+    cov_diag = np.zeros(d)
+    for j in range(d):
+        # Mixture variance for feature j
+        var_within = pi * np.sum(sigma)
+        var_between = pi * np.sum(mu[:, j]**2) - (pi * np.sum(mu[:, j]))**2
+        cov_diag[j] = var_within + var_between
+    
+    # Return diagonal covariance matrix
+    return np.diag(cov_diag)
 def vec(A):
     vec = A.reshape(-1)
     return vec.reshape(-1,1)
@@ -233,7 +261,7 @@ def vec(A):
 
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    dataseed = 114 #random.randint(0, 2**32 - 1)
+    dataseed = _ + 1 #random.randint(0, 2**32 - 1)
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
@@ -251,9 +279,10 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 8
+    delta = 4
+    cluster_std = [0.25, 0.5, 1]
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=delta, cluster_std=[0.25, 0.5, 1],seed=dataseed)
+                                             delta=delta, cluster_std=cluster_std,seed=dataseed)
 
 
     # # print(Ys.shape)
@@ -282,19 +311,26 @@ def run(mu_s, mu_t, K, device,_=None):
     # print(labels_all_obs)
     labelkmean = labels_all_obs[-1][ns:]
     print("ari",adjusted_rand_score(Yt, labelkmean))
-    Sigma = np.identity(n*d)
+
+
+    # Sigma_s = compute_cov_matrix(0.25**2, 0.5**2, 1**2, mus[0], mus[1], mus[2])
+    # Sigma_t = compute_cov_matrix(0.25**2, 0.5**2, 1**2, mut[0], mut[1], mut[2])
+    # cov_vecXs = np.kron(Sigma_s, np.eye(ns))
+    # cov_vecXt = np.kron(Sigma_t, np.eye(nt))
+    # Sigma = block_diag(cov_vecXs, cov_vecXt)
+    variance = cluster_std[0]**2 + cluster_std[1]**2 + cluster_std[2]**2
+    Sigma = np.identity(n*d) * variance / 3 
     try:
         a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
         
     except Exception as e:
         print("test statistic is none", e) 
         return None
-    print(mut.shape)
-    print(mut[c1_obs].shape)
-    print(mut[c2_obs].shape)
+    # with open(f'logs/selective_inference_log/TPR_teststatlist_rotated_delta{delta}.txt', 'a') as f:
+    #     f.write(f"{etaTX}\n")
 
     check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
-    # print(check_h1)
+    print("check h1",check_h1)
     if abs(check_h1) < 1e-8:
         print("Incorrect cluster", check_h1)
         return None
@@ -306,7 +342,7 @@ def run(mu_s, mu_t, K, device,_=None):
     #         return None
     # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
     # print(permutation_test_pvalue)
-    # with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
+    # with open(f'logs/selective_inference_log/TPRpermutate_p_valueslist_delta{delta}.txt', 'a') as f:
     #     f.write(f"{permutation_test_pvalue}\n")
     # return permutation_test_pvalue
     a_2d = a.reshape(n, d)
@@ -337,7 +373,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:

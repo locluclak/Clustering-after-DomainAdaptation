@@ -19,7 +19,7 @@ def clustering(X, n_cluster: int):
     return labels, kmeans
 
 
-def main():
+def main(delta=10):
     # ==== Load config ====
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
@@ -65,8 +65,9 @@ def main():
     # )
     # Xs, Ys, _ = dataset["source"]
     # Xt, Yt, _ = dataset["target"]
+    # delta = 10
     Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=10, cluster_std=[0.25, 0.5, 1],seed=1)
+                                             delta=delta, cluster_std=[0.25, 0.5, 1],seed=1)
 
 
     # print(Ys.shape)
@@ -221,4 +222,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    for d in [2,4,6,8,10]:
+        print(f"Running for delta = {d}")
+        main(delta=d)

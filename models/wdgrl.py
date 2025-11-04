@@ -33,6 +33,10 @@ class Encoder(nn.Module):
             layers.append(nn.Linear(prev_dim, hidden_dim))
             if i < len(hidden_dims) - 1:  # only add ReLU for intermediate layers
                 layers.append(nn.ReLU())
+            # layers.extend([
+            #     nn.Linear(prev_dim, hidden_dim),
+            #     nn.ReLU(),
+            # ])
             prev_dim = hidden_dim
 
         self.net = nn.Sequential(*layers)
@@ -59,8 +63,10 @@ class Critic(nn.Module):
             ])
             prev_dim = hidden_dim
 
-        layers.append(nn.Linear(prev_dim, 1))  # Output scalar for Wasserstein distance
-
+        layers.extend([
+            nn.Linear(prev_dim, 1),
+            # nn.Sigmoid(),
+        ])
         self.net = nn.Sequential(*layers)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:

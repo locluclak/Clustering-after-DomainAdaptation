@@ -100,16 +100,13 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all,z=0):
             p2, q2, o2 = util.construct_p_q_t(u2, v2)
 
             p, q, o = (p1 - p2).item(), (q1 - q2).item(), (o1 - o2).item()
-            # print("pqo")
-            print("pqo", f"{p:.5f}", f"{q:.5f}", f"{o:.5f}")
-            # print(f"data {i}, cluster {k}, pzz qz o {(p*z*z + q*z + o):.5f}")
+
             res = util.solve_quadratic_inequality(p, q, o)
-            print("subitv",res)
+            # print("subitv",res)
 
             trunc_interval1 = util.interval_intersection(trunc_interval1, res)
             # print("Initial K-means truncation interval:", trunc_interval1)
     trunc_interval2 = [(-np.inf, np.inf)]
-    print("______________________________________________________")
     for t in range(1, len(labels_all)):
         for i in range(n):
             e_i = np.zeros((1,n))
@@ -149,19 +146,11 @@ def KMeancondition(n, K, a, b, initial_centroids, labels_all, members_all,z=0):
                 p4, q4, o4 = util.construct_p_q_t(u4, v4)
 
                 p_comma, q_comma, o_comma = (p3 - p4).item(), (q3 - q4).item(), (o3 - o4).item()
-                print("pqo", f"{p_comma:.5f}", f"{q_comma:.5f}", f"{o_comma:.5f}")
-                # print(f"step {t}, index {i}, k {k}, pzz qz o {p_comma*z*z + q_comma*z + o_comma:.5f}")
+
                 res = util.solve_quadratic_inequality(p_comma, q_comma, o_comma)
-                # if t == 4 and i ==22 and k==1:
-                    # print(f"{t}, {i}, {k}.p_comma, q_comma, o_comma:", f"{p_comma:.8f}", f"{q_comma:.8f}", f"{o_comma:.8f}")
-                    # print("res:", res)
-                print("subitv",res)
                 trunc_interval2 = util.interval_intersection(trunc_interval2, res)
-    #     print(f"Iteration {t} K-means truncation interval:", trunc_interval2)
-    # print("Subsequent K-means truncation interval:", trunc_interval2)
     trunc_interval = util.interval_intersection(trunc_interval1, trunc_interval2)
     trunc_interval = [(float(a), float(b)) for (a, b) in trunc_interval]
-    print("\n\n KMEAN", trunc_interval)
 
     return trunc_interval
 
@@ -234,7 +223,9 @@ def KMeancondition2(n, K, A, B, initial_centroids, labels_all, members_all = Non
             O = (NCo[:, k] - NCo[:, k_])[:, None] - 2 * XAdotLCA
 
             # combine masks: mask_k (points currently labeled k) AND valid for previous cluster k AND not self_mask
-            combined_mask = mask_k & valid[:, k][:, None] & (~self_mask)
+            # combined_mask = mask_k & valid[:, k][:, None] & (~self_mask)
+            valid_pairs = valid[:, k] & valid[:, k_]  # both clusters non-empty at t>0
+            combined_mask = (mask_k & valid_pairs[:, None] & (~self_mask))
             P_sel = P[combined_mask]
             Q_sel = Q[combined_mask]
             O_sel = O[combined_mask]

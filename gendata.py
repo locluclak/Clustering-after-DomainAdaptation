@@ -666,11 +666,36 @@ def plot_clusters_with_background(X, labels, ax, title, kmeans):
     return scatter
 from sklearn.metrics import adjusted_rand_score
 from tqdm import trange
+from scipy.stats import special_ortho_group
 
+def _orthonormal_pair(d,seed=None):
+    """
+    Return two orthonormal vectors u,v in R^d.
+    orient: 'random' or 'align_to_ones'
+    """
+    rng = np.random.default_rng(seed)
 
-def random_3_points(dim=2, delta: float=1):
-    if dim < 2:
-        raise ValueError("Require at least 2 dimensions")
+    ones = np.ones(d)
+    u = ones / np.linalg.norm(ones)
+    # pick random vector and make it orthogonal to u, then normalize
+    r = rng.normal(size=d)
+    r -= r.dot(u) * u
+    norm_r = np.linalg.norm(r)
+    if norm_r < 1e-12:
+        # fallback: pick standard basis e2 (d>=2 assumed)
+        r = np.eye(d)[1]
+        r -= r.dot(u) * u
+        norm_r = np.linalg.norm(r)
+    v = r / norm_r
+    return u, v
+
+def random_3_points(dim=2, delta: float=1, rotation_seed=None):
+    # if dim < 2:
+    #     raise ValueError("Require at least 2 dimensions")
+    # u, v = _orthonormal_pair(dim, seed=rotation_seed)
+    # p1 = delta/2 * u
+    # p2 = -delta/2 * u
+    # p3 = (delta*np.sqrt(3)/2.0) * v
     p1 = np.zeros(dim)
     p2 = np.zeros(dim)
     p3 = np.zeros(dim)
@@ -679,15 +704,38 @@ def random_3_points(dim=2, delta: float=1):
     p3[0] = delta/2
     p3[1] = np.sqrt(3)/2 *delta 
 
+    # p1[0] = delta/2
+    # p2[0] = -delta/2
+    # p3[1] = np.sqrt(3)/2 *delta 
+
+
+    # p1[0], p1[1] = 0, np.sqrt(3)/3*delta
+    # p2[0], p2[1] = -delta/2, -np.sqrt(3)/6*delta
+    # p3[0], p3[1] = delta/2, -np.sqrt(3)/6*delta
+    # p1[0], p1[1] = 0, 0
+    # p2[0], p2[1] = np.sqrt(3)/2*delta, -delta/2
+    # p3[0], p3[1] = np.sqrt(3)/2*delta, delta/2
+
     points = np.array([p1,p2,p3])
-    return points
+    # random rotation (proper orthogonal matrix)
+    Q = special_ortho_group.rvs(dim, random_state=rotation_seed)
+    # Q = rotate_for_max_manhattan(p1, p2)
+    rotated_points =  (Q @ points.T).T
+    # print(rotated_points)
+    # l2 norms between 3 points
+    # for i in range(3):
+    #     for j in range(i+1, 3):
+    #         print(f"Distance between point {i} and {j}: ", np.linalg.norm(rotated_points[i]- rotated_points[j]))
+    #         print(f"Distance l1 between point {i} and {j}: ", np.linalg.norm(rotated_points[i]- rotated_points[j], ord=1))
+    return rotated_points
 
-def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1], seed=None):
+def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1], seed=None, rotation_seed=1):
     rng = np.random.default_rng(seed)
-    shift = 2
+    shift = 4
 
-    centers_t = random_3_points(dim=dim, delta=delta)
-    centers_s = centers_t + shift
+    centers_t = random_3_points(dim=dim, delta=delta, rotation_seed=rotation_seed)
+    # centers_s = centers_t + shift
+    centers_s = random_3_points(dim=dim, delta=8, rotation_seed=rotation_seed) + shift
     Xs = []
     ys = []
     mus = []
@@ -734,18 +782,18 @@ if __name__ == "__main__":
 
     
     # Example usage
-    X, y = random_3_clusters(dim=10, delta=5, n_per_cluster=1000, cluster_std=[0.5,1,2])
-    print("X shape:", X.shape)
-    print("y shape:", y.shape)
+    random_3_clusters(dim=10, delta=5, ns=100, nt=50, cluster_std=[0.5,1,2],seed=40)
+    # print("X shape:", X.shape)
+    # print("y shape:", y.shape)
     # plt.scatter(X[:,0], X[:,1], c=y, cmap="viridis", s=30, alpha=0.7)
     # plt.axis("equal")
     # plt.show()
 
-    from mpl_toolkits.mplot3d import Axes3D
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(X[:,0], X[:,1], X[:,2], c=y, cmap="viridis", s=30, alpha=0.7)
-    plt.show()
+    # from mpl_toolkits.mplot3d import Axes3D
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection="3d")
+    # ax.scatter(X[:,0], X[:,1], X[:,2], c=y, cmap="viridis", s=30, alpha=0.7)
+    # plt.show()
     # fine = 0
     # notfine = 0
     # for _ in trange(100):
