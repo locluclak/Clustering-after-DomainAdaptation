@@ -16,7 +16,8 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 150, 50, 10
+ns, nt, d = 200, 50, 10
+rho = 0.8
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -37,8 +38,11 @@ final_model = WDGRL(
     seed=exp_cfg["model_random_state"],
     device=device,
 )
-
-final_model.load_model("logs\\20251017-220747-delta8-rho0.2")
+dict_path = {0.2: "logs\\20251122-115139delta5_rho0.2",
+             0.4 : "logs\\20251122-114552delta5_rho0.4",
+             0.6 : "logs\\20251122-114809delta5_rho0.6",
+             0.8 : "logs\\20251122-114933delta5_rho0.8",}
+final_model.load_model(dict_path[rho])
 
 # def conditional_power(M, )
 
@@ -247,8 +251,8 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 8
-    rho = 0.2
+    delta = 5
+
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, rho=rho,seed=dataseed)
 
@@ -286,9 +290,7 @@ def run(mu_s, mu_t, K, device,_=None):
     except Exception as e:
         print("test statistic is none", e) 
         return None
-    print(mut.shape)
-    print(mut[c1_obs].shape)
-    print(mut[c2_obs].shape)
+
 
     check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
     # print(check_h1)
@@ -334,7 +336,7 @@ def run(mu_s, mu_t, K, device,_=None):
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:

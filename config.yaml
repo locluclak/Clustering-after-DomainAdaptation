@@ -29,18 +29,18 @@ data:
   data_gen_method: gen_domain_adaptation_data_k #ignore
 
 model:
-  encoder_hidden_dims: [500, 100]
+  encoder_hidden_dims: [300,100]
   decoder_hidden_dims: [50, 100, 500] # not used ignore
   critic_hidden_dims: [100]
   alpha1: 0.0001 # critic
-  alpha2: 0.0001 # encoder
+  alpha2: 0.00001 # encoder
   use_decoder: false
 
 training:
-  num_epochs: 6000
-  batch_size: 32 # no need to change
-  dc_iter: 5 # epoch train critic adjudst +1 or -1
-  gamma: 10.0 # how strong of critic gradient
+  num_epochs: 3000
+  batch_size: 50 # no need to change
+  dc_iter: 6 # epoch train critic adjudst +1 or -1
+  gamma: 5.0 # how strong of critic gradient
   delta: 0.5 # delta, lambda controls the decoder - ignore if use_decoder = false ignore
   lambda: 1.0 # ignore
   # early stopping is not complete - set false

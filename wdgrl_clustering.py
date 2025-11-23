@@ -65,8 +65,10 @@ def main():
     # )
     # Xs, Ys, _ = dataset["source"]
     # Xt, Yt, _ = dataset["target"]
+    delta = 5
+    rho = 0.2
     Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=8, rho = 0.2,seed=1)
+                                             delta=delta, rho = rho,seed=None)
 
 
     # print(Ys.shape)
@@ -115,7 +117,7 @@ def main():
     )
     # ==== Logging setup ====
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", timestamp)
+    log_dir = os.path.join("logs", timestamp + f"delta{delta}_rho{rho}")
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, "results.txt")
