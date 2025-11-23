@@ -65,10 +65,10 @@ def main():
     # )
     # Xs, Ys, _ = dataset["source"]
     # Xt, Yt, _ = dataset["target"]
-    delta = 5
-    rho = 0.2
+    delta = 8
+    rho = 0.8
     Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
-                                             delta=delta, rho = rho,seed=None)
+                                             delta=delta, rho = rho,seed=9999999)
 
 
     # print(Ys.shape)
