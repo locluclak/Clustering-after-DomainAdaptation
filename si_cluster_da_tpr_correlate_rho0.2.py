@@ -131,7 +131,7 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
                 # Xdeltaz_transformed = final_model.extract_feature(Xdeltaz_torch).cpu().numpy()
                 Xdeltaz_transformed = model.extract_feature(Xdeltaz_torch).cpu().numpy()
             initial_centroids_z, labels_all_z, members_all_obs = kmeans(Xdeltaz_transformed, n_clusters)
-            
+
             # print("sum xt",np.sum(Xdeltaz[ns:]))
             # sign_z = test_statistic(vec(Xdeltaz), Xdeltaz[ns:], ns, nt, d, n_clusters, Sigma=None, labels_all_obs=labels_all_z,return_sign=True)
             sign_z = np.sign(eta.T.dot(vec(Xdeltaz[ns:])))
@@ -225,7 +225,21 @@ def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2,
         "p_value": p_value,
         "permuted_stats": permuted_stats
     }
-
+def compute_cov_matrix(sigma1, sigma2, sigma3, mu1, mu2, mu3):
+    d = len(mu1)  # Dimension of feature space
+    pi = 1/3  # Equal cluster proportions
+    mu = np.array([mu1, mu2, mu3])  # Cluster centroids
+    sigma = np.array([sigma1, sigma2, sigma3])  # Cluster variances
+    
+    # Compute diagonal elements of covariance matrix
+    cov_diag = np.zeros(d)
+    for j in range(d):
+        # Mixture variance for feature j
+        var_within = pi * np.sum(sigma)
+        var_between = pi * np.sum(mu[:, j]**2) - (pi * np.sum(mu[:, j]))**2
+        cov_diag[j] = var_within + var_between
+    
+    # Return diagonal covariance matrix    return np.diag(cov_diag)
 def vec(A):
     vec = A.reshape(-1)
     return vec.reshape(-1,1)
@@ -295,33 +309,33 @@ def run(mu_s, mu_t, K, device,_=None):
     # print(mut[c2_obs].shape)
 
     check_h1 =np.sum(np.abs(np.mean(mut[c1_obs], axis=0) - np.mean(mut[c2_obs], axis=0))) 
-    # print(check_h1)
+    print("check h1",check_h1)
     if abs(check_h1) < 1e-8:
         print("Incorrect cluster", check_h1)
         return None
-    # for k in [c1,c2]:
-    #     cluster_mask = (labelkmean == k).astype(int)
-    #     true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
-    #     ari = adjusted_rand_score(true_mask, cluster_mask)
-    #     if ari <0.95:
-    #         return None
-    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    # print(permutation_test_pvalue)
-    # with open(f'logs/selective_inference_log/TPRpermutation_p_valueslist_delta{delta}.txt', 'a') as f:
-    #     f.write(f"{permutation_test_pvalue}\n")
-    # return permutation_test_pvalue
-    a_2d = a.reshape(n, d)
-    b_2d = b.reshape(n, d)
+    for k in [c1,c2]:
+        cluster_mask = (labelkmean == k).astype(int)
+        true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
+        ari = adjusted_rand_score(true_mask, cluster_mask)
+        if ari <0.95:
+            return None
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    print(permutation_test_pvalue)
+    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpermutation_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+        f.write(f"{permutation_test_pvalue}\n")
+    return permutation_test_pvalue
+    # a_2d = a.reshape(n, d)
+    # b_2d = b.reshape(n, d)
 
-    np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
-    # final_model.encoder = final_model.encoder.to(device)
-
-
-    std = np.sqrt(etaT_Sigma_eta)
+    # np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
+    # # final_model.encoder = final_model.encoder.to(device)
 
 
-    final_interval1 = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # #final_interval = parametric(final_model, 
+    # std = np.sqrt(etaT_Sigma_eta)
+
+
+    # # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    # final_interval = parametric(final_model, 
     #                             X_origin, 
     #                             a_2d, 
     #                             b_2d,
@@ -331,26 +345,16 @@ def run(mu_s, mu_t, K, device,_=None):
     #                             signobs = sign, 
     #                             zmin=-20*std, zmax=20*std,
     #                               seed=dataseed)
-    final_interval2 = [(-np.inf, np.inf)]
+    # # final_interval = [(-np.inf, np.inf)]
     
-    # print(etaTX)
+    # # print(etaTX)
     # # print("Final interval",final_interval)
     # selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
     # print(f"test-stat: {etaTX}, p-value:", selective_p_value)
-    oc_p_value = util.compute_p_value(final_interval1, etaTX, etaT_Sigma_eta)
-    naive_p_value = util.compute_p_value(final_interval2, etaTX, etaT_Sigma_eta)
-    # with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-    #     f.write(f"{selective_p_value}\n")
 
-    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-        f.write(f"{oc_p_value}\n")
-    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPR_naive_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-        f.write(f"{naive_p_value}\n")
-    return oc_p_value
-    # except Exception as e:
-    #     print("Error during run:", e)
-    #     # print("Data seed:", dataseed)
-    #     return None
+    # with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
+    #     f.write(f"{selective_p_value}\n")
+    # return selective_p_value
 
 import argparse
 if __name__ == "__main__":
