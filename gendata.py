@@ -780,7 +780,8 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     Xt = Xt[idx_t]
     yt = yt[idx_t]
     mut = mut[idx_t]
-    return Xs, Xt, ys, yt, mus, mut
+    vec_Sigma = np.kron(Sigma, np.identity(ns + nt))
+    return Xs, Xt, ys, yt, mus, mut, vec_Sigma
 
 
 if __name__ == "__main__":

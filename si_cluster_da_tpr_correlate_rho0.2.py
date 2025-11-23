@@ -38,10 +38,16 @@ final_model = WDGRL(
     seed=exp_cfg["model_random_state"],
     device=device,
 )
-dict_path = {0.2: "logs\\20251122-115139delta5_rho0.2",
-             0.4 : "logs\\20251122-114552delta5_rho0.4",
-             0.6 : "logs\\20251122-114809delta5_rho0.6",
-             0.8 : "logs\\20251122-114933delta5_rho0.8",}
+# dict_path = {0.2: "logs\\20251122-115139delta5_rho0.2",
+#              0.4 : "logs\\20251122-114552delta5_rho0.4",
+#              0.6 : "logs\\20251122-114809delta5_rho0.6",
+#              0.8 : "logs\\20251122-114933delta5_rho0.8",}
+dict_path = {
+    0.2: "logs\\20251123-163849delta8_rho0.2",
+    0.4: "logs\\20251123-164037delta8_rho0.4",
+    0.6: "logs\\20251123-164202delta8_rho0.6",
+    0.8: "logs\\20251123-164409delta8_rho0.8",
+}
 final_model.load_model(dict_path[rho])
 
 # def conditional_power(M, )
@@ -265,9 +271,9 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 5
+    delta = 8
 
-    Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
+    Xs, Xt, Ys, Yt, mus, mut, Sigma = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, rho=rho,seed=dataseed)
 
 
@@ -297,7 +303,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # print(labels_all_obs)
     labelkmean = labels_all_obs[-1][ns:]
     print("ari",adjusted_rand_score(Yt, labelkmean))
-    Sigma = np.identity(n*d)
+    # Sigma = np.identity(n*d)
     try:
         a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
         
@@ -313,48 +319,48 @@ def run(mu_s, mu_t, K, device,_=None):
     if abs(check_h1) < 1e-8:
         print("Incorrect cluster", check_h1)
         return None
-    for k in [c1,c2]:
-        cluster_mask = (labelkmean == k).astype(int)
-        true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
-        ari = adjusted_rand_score(true_mask, cluster_mask)
-        if ari <0.95:
-            return None
-    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    print(permutation_test_pvalue)
-    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpermutation_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-        f.write(f"{permutation_test_pvalue}\n")
-    return permutation_test_pvalue
-    # a_2d = a.reshape(n, d)
-    # b_2d = b.reshape(n, d)
+    # for k in [c1,c2]:
+    #     cluster_mask = (labelkmean == k).astype(int)
+    #     true_mask = (Yt == np.bincount(Yt[labelkmean == k]).argmax()).astype(int)
+    #     ari = adjusted_rand_score(true_mask, cluster_mask)
+    #     if ari <0.95:
+    #         return None
+    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    # print(permutation_test_pvalue)
+    # with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpermutation_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+    #     f.write(f"{permutation_test_pvalue}\n")
+    # return permutation_test_pvalue
+    a_2d = a.reshape(n, d)
+    b_2d = b.reshape(n, d)
 
-    # np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
-    # # final_model.encoder = final_model.encoder.to(device)
-
-
-    # std = np.sqrt(etaT_Sigma_eta)
+    np_wdgrl = None# operations.convert_network_to_numpy(final_model.encoder)
+    # final_model.encoder = final_model.encoder.to(device)
 
 
-    # # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # final_interval = parametric(final_model, 
-    #                             X_origin, 
-    #                             a_2d, 
-    #                             b_2d,
-    #                             eta_tmp,
-    #                             np_wdgrl, 
-    #                             K, c1, c2, c1_obs, c2_obs, 
-    #                             signobs = sign, 
-    #                             zmin=-20*std, zmax=20*std,
-    #                               seed=dataseed)
-    # # final_interval = [(-np.inf, np.inf)]
+    std = np.sqrt(etaT_Sigma_eta)
+
+
+    # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    final_interval = parametric(final_model, 
+                                X_origin, 
+                                a_2d, 
+                                b_2d,
+                                eta_tmp,
+                                np_wdgrl, 
+                                K, c1, c2, c1_obs, c2_obs, 
+                                signobs = sign, 
+                                zmin=-20*std, zmax=20*std,
+                                  seed=dataseed)
+    # final_interval = [(-np.inf, np.inf)]
     
-    # # print(etaTX)
-    # # print("Final interval",final_interval)
-    # selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    # print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    # print(etaTX)
+    # print("Final interval",final_interval)
+    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    # with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
-    #     f.write(f"{selective_p_value}\n")
-    # return selective_p_value
+    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
+        f.write(f"{selective_p_value}\n")
+    return selective_p_value
 
 import argparse
 if __name__ == "__main__":
