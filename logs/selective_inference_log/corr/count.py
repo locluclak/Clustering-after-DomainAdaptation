@@ -49,12 +49,12 @@ for ns in nslist:
     # FPRpermutation.append(sum(p < alpha for p in pvalues) / len(pvalues))
     
     # OC method
-    with open(f"logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta5_rho{ns}.txt", "r") as f:
+    with open(f"logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta8_rho{ns}.txt", "r") as f:
         pvalues = [float(line.strip()) for line in f if line.strip()]
     FPRoc.append(sum(p < alpha for p in pvalues) / len(pvalues))
     
     # Parametric method
-    with open(f"logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta5_rho{ns}.txt", "r") as f:
+    with open(f"logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta8_rho{ns}.txt", "r") as f:
         pvalues = [float(line.strip()) for line in f if line.strip()]
     FPRpara.append(sum(p < alpha for p in pvalues) / len(pvalues))
 

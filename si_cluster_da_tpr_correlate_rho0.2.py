@@ -17,7 +17,7 @@ from models.wdgrl import WDGRL
 
 
 ns, nt, d = 200, 50, 10
-rho = 0.6
+rho = 0.2
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)

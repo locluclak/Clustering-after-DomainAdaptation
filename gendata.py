@@ -792,9 +792,7 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     # Total population covariances
     Sigma_s = Sigma + B_s
     Sigma_t = Sigma + B_t
-    print(Sigma_s.shape)
-    print(Sigma_t.shape)
-    # Block covariance
+    
     
     # vec_Sigma = np.kron(final_Sigma, np.identity(ns + nt))
     from scipy import sparse
@@ -802,7 +800,7 @@ def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.
     vec_Sigma_1 = sparse.kron(sparse.identity(Xs.shape[0]), Sigma_s,  format='csr')
     vec_Sigma_2 = sparse.kron(sparse.identity(Xt.shape[0]), Sigma_t, format='csr')
     vec_Sigma = sparse.block_diag([vec_Sigma_1, vec_Sigma_2], format='csr')
-    print(vec_Sigma.shape)
+    
     
     
     return Xs, Xt, ys, yt, mus, mut, vec_Sigma
