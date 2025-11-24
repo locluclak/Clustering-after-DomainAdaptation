@@ -80,10 +80,22 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
     eta_sign = np.dot(eta_tmp, sign)
 
     eta = np.vstack((np.zeros((ns*d, 1)), eta_sign))
+    print("eta shape", eta.shape)
     etaTXvec = np.dot(eta.T, X_vec)
 
-    etaT_Sigma_eta = np.dot(np.dot(eta.T, Sigma), eta)
-    b = np.dot(np.dot(Sigma, eta), np.linalg.inv(etaT_Sigma_eta))
+    tmp = eta.T @ Sigma @ eta
+
+    # dense
+    if hasattr(tmp, "item"):
+        etaT_Sigma_eta = tmp.item()
+
+    # sparse
+    else:
+        etaT_Sigma_eta = tmp.toarray().item()
+
+   
+    b = (Sigma @ eta) / etaT_Sigma_eta
+    
     a = np.dot(np.identity(X_vec.shape[0]) - np.dot(b, eta.T), X_vec)
     z = etaTXvec.item()
     
@@ -92,7 +104,7 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
         "b": b,
         "eta_tmp": eta_tmp,
         "zobs": z,
-        "etaT_Sigma_eta": etaT_Sigma_eta.item(),
+        "etaT_Sigma_eta": etaT_Sigma_eta,
         "c1": c1,
         "c2": c2,
         "cluster_c1_obs": idx_cluster_c1,
@@ -340,8 +352,8 @@ def run(mu_s, mu_t, K, device,_=None):
     std = np.sqrt(etaT_Sigma_eta)
 
 
-    # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    final_interval = parametric(final_model, 
+    final_interval1 = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
+    final_interval2 = parametric(final_model, 
                                 X_origin, 
                                 a_2d, 
                                 b_2d,
@@ -355,10 +367,13 @@ def run(mu_s, mu_t, K, device,_=None):
     
     # print(etaTX)
     # print("Final interval",final_interval)
-    selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
+    oc_p_value = util.compute_p_value(final_interval1, etaTX, etaT_Sigma_eta)
+    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+        f.write(f"{oc_p_value}\n")
+    selective_p_value = util.compute_p_value(final_interval2, etaTX, etaT_Sigma_eta)
     print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
+    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
         f.write(f"{selective_p_value}\n")
     return selective_p_value
 
