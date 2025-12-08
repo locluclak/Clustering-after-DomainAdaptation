@@ -42,16 +42,21 @@ final_model = WDGRL(
 #              0.4 : "logs\\20251122-114552delta5_rho0.4",
 #              0.6 : "logs\\20251122-114809delta5_rho0.6",
 #              0.8 : "logs\\20251122-114933delta5_rho0.8",}
+# dict_path = {
+#     0.2: "logs\\20251123-163849delta8_rho0.2",
+#     0.4: "logs\\20251123-164037delta8_rho0.4",
+#     0.6: "logs\\20251123-164202delta8_rho0.6",
+#     0.8: "logs\\20251123-164409delta8_rho0.8",
+# }
 dict_path = {
-    0.2: "logs\\20251123-163849delta8_rho0.2",
-    0.4: "logs\\20251123-164037delta8_rho0.4",
-    0.6: "logs\\20251123-164202delta8_rho0.6",
-    0.8: "logs\\20251123-164409delta8_rho0.8",
+0.2: "logs\\20251207-175833delta8_rho0.2",
+0.4: "logs\\20251207-180439delta8_rho0.4",
+0.6: "logs\\20251207-181456delta8_rho0.6",
+0.8: "logs\\20251207-182427delta8_rho0.8",
 }
 final_model.load_model(dict_path[rho])
 
 # def conditional_power(M, )
-
 def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
 
     c1, c2 = np.random.choice(n_clusters, 2, replace=False)
@@ -80,22 +85,10 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
     eta_sign = np.dot(eta_tmp, sign)
 
     eta = np.vstack((np.zeros((ns*d, 1)), eta_sign))
-    print("eta shape", eta.shape)
     etaTXvec = np.dot(eta.T, X_vec)
 
-    tmp = eta.T @ Sigma @ eta
-
-    # dense
-    if hasattr(tmp, "item"):
-        etaT_Sigma_eta = tmp.item()
-
-    # sparse
-    else:
-        etaT_Sigma_eta = tmp.toarray().item()
-
-   
-    b = (Sigma @ eta) / etaT_Sigma_eta
-    
+    etaT_Sigma_eta = np.dot(np.dot(eta.T, Sigma), eta)
+    b = np.dot(np.dot(Sigma, eta), np.linalg.inv(etaT_Sigma_eta))
     a = np.dot(np.identity(X_vec.shape[0]) - np.dot(b, eta.T), X_vec)
     z = etaTXvec.item()
     
@@ -104,13 +97,72 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
         "b": b,
         "eta_tmp": eta_tmp,
         "zobs": z,
-        "etaT_Sigma_eta": etaT_Sigma_eta,
+        "etaT_Sigma_eta": etaT_Sigma_eta.item(),
         "c1": c1,
         "c2": c2,
         "cluster_c1_obs": idx_cluster_c1,
         "cluster_c2_obs": idx_cluster_c2,
         "sign": sign
     }
+# def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,return_sign=False):
+
+#     c1, c2 = np.random.choice(n_clusters, 2, replace=False)
+#     idx_cluster_c1 = np.argwhere(labels_all_obs[-1][ns:] == c1).flatten()
+#     idx_cluster_c2 = np.argwhere(labels_all_obs[-1][ns:] == c2).flatten()
+#     if idx_cluster_c1.size == 0 or idx_cluster_c2.size == 0:
+#         return None
+
+#     I_d = np.identity(d)
+    
+#     eta_c1_idx = np.zeros((nt, 1))
+#     eta_c1_idx[idx_cluster_c1] = 1 / len(idx_cluster_c1)
+#     eta_c1 = np.kron(I_d, eta_c1_idx)
+    
+    
+#     eta_c2_idx = np.zeros((nt, 1))
+#     eta_c2_idx[idx_cluster_c2] = 1 / len(idx_cluster_c2)
+#     eta_c2 = np.kron(I_d, eta_c2_idx)
+   
+#     eta_tmp = eta_c1 - eta_c2
+#     sign_tmp = np.dot(eta_tmp.T, vec(Xt))
+#     sign = np.sign(sign_tmp).astype(int)
+#     # print("eta_tmp", eta_tmp)
+#     if return_sign:
+#         return sign
+#     eta_sign = np.dot(eta_tmp, sign)
+
+#     eta = np.vstack((np.zeros((ns*d, 1)), eta_sign))
+#     print("eta shape", eta.shape)
+#     etaTXvec = np.dot(eta.T, X_vec)
+
+#     tmp = eta.T @ Sigma @ eta
+
+#     # dense
+#     if hasattr(tmp, "item"):
+#         etaT_Sigma_eta = tmp.item()
+
+#     # sparse
+#     else:
+#         etaT_Sigma_eta = tmp.toarray().item()
+
+   
+#     b = (Sigma @ eta) / etaT_Sigma_eta
+    
+#     a = np.dot(np.identity(X_vec.shape[0]) - np.dot(b, eta.T), X_vec)
+#     z = etaTXvec.item()
+    
+#     return {
+#         "a": a,
+#         "b": b,
+#         "eta_tmp": eta_tmp,
+#         "zobs": z,
+#         "etaT_Sigma_eta": etaT_Sigma_eta,
+#         "c1": c1,
+#         "c2": c2,
+#         "cluster_c1_obs": idx_cluster_c1,
+#         "cluster_c2_obs": idx_cluster_c2,
+#         "sign": sign
+#     }
 
 def overconditioning(model, X,eta, a, b, np_wdgrl, n_clusters, initial_centroids_obs, labels_all_obs, members_all_obs,z=0,X_=None):
     if device == "cpu":
@@ -181,7 +233,20 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
             f.write(f"Number of intervals: {countitv}\n\n")
             f.write(f"Final interval: {Z}\n")
     # print("Final interval:", Z)
-    return Z
+    new_z_interval = []
+    for each_interval in Z:
+        each_interval = list(each_interval)   # convert tuple → list
+
+        if len(new_z_interval) == 0:
+            new_z_interval.append(each_interval)
+        else:
+            sub = each_interval[0] - new_z_interval[-1][1]
+            if abs(sub) <= 1e-15:
+                new_z_interval[-1][1] = each_interval[1]
+            else:
+                new_z_interval.append([each_interval[0], each_interval[1]])
+
+    return new_z_interval
 
 def test_statistic_permutationtest(Xt, idx_cluster_c1, idx_cluster_c2):
     I_d = np.identity(d)
@@ -315,7 +380,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # print(labels_all_obs)
     labelkmean = labels_all_obs[-1][ns:]
     print("ari",adjusted_rand_score(Yt, labelkmean))
-    # Sigma = np.identity(n*d)
+    #Sigma = np.identity(n*d)
     try:
         a, b, eta_tmp, etaTX, etaT_Sigma_eta, c1, c2, c1_obs, c2_obs, sign = test_statistic(X_vec, Xt, ns, nt, d, K, Sigma, labels_all_obs).values()
         
@@ -367,14 +432,18 @@ def run(mu_s, mu_t, K, device,_=None):
     
     # print(etaTX)
     # print("Final interval",final_interval)
+    print(f"test-stat: {etaTX}, std = {std}")
     oc_p_value = util.compute_p_value(final_interval1, etaTX, etaT_Sigma_eta)
-    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-        f.write(f"{oc_p_value}\n")
+    # with open(f'logs/selective_inference_log/corr/change_rho_n200/TPR_oc_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+    #     f.write(f"{oc_p_value}\n")
+    print('oc itv', final_interval1)
+    print('para itv', final_interval2)
+    print('oc pvalue', oc_p_value)
     selective_p_value = util.compute_p_value(final_interval2, etaTX, etaT_Sigma_eta)
-    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    print("p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
-        f.write(f"{selective_p_value}\n")
+    # with open(f'logs/selective_inference_log/corr/change_rho_n200/TPRpara_p_valueslist_delta{delta}_rho{rho}.txt', 'a') as f:
+    #     f.write(f"{selective_p_value}\n")
     return selective_p_value
 
 import argparse

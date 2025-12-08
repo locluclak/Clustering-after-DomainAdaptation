@@ -736,75 +736,124 @@ def random_3_clusters(ns=100,nt=50, dim=2, delta: float = 1,cluster_std=[1,1,1],
     mut = mut[idx_t]
 
     return Xs, Xt, ys, yt, mus, mut
+# def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.2, seed=None):
+#     rng = np.random.default_rng(seed)
+#     shift = 2
+#     p1 = np.zeros(dim//3)
+#     p2 = np.zeros(dim//3)
+#     p3 = np.zeros(dim - 2*(dim//3))
+
+#     p2[0] = delta
+#     p3[0] = delta/2
+#     p3[1] = np.sqrt(3)/2 *delta 
+#     p = np.concatenate((p1, p2, p3))
+#     print(p)
+
+    
+#     centers_t = random_3_points(dim=dim, delta=delta)
+#     centers_s = centers_t + shift
+#     Xs = []
+#     ys = []
+#     mus = []
+#     Sigma = np.array([[rho**abs(i-j) for j in range(dim)] for i in range(dim)])
+#     for i, center in enumerate(centers_s):
+#         cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=ns)
+#         Xs.append(cluster_points)
+#         ys.append(np.full(ns, i))
+#         for _ in range(ns):
+#             mus.append(center.copy())
+#     mus = np.array(mus)
+#     Xs = np.vstack(Xs)
+#     ys = np.concatenate(ys)
+
+#     Xt = []
+#     yt = []
+#     mut = []
+#     for i, center in enumerate(centers_t):
+#         cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=nt)
+#         Xt.append(cluster_points)
+#         yt.append(np.full(nt, i))
+#         for _ in range(nt):
+#             mut.append(center.copy())
+#     mut = np.array(mut)
+
+#     Xt = np.vstack(Xt)
+#     yt = np.concatenate(yt)
+
+#     # Shuffle source
+#     idx_s = rng.permutation(len(Xs))
+#     Xs = Xs[idx_s]
+#     ys = ys[idx_s]
+#     mus = mus[idx_s]
+#     # Shuffle target
+#     idx_t = rng.permutation(len(Xt))
+#     Xt = Xt[idx_t]
+#     yt = yt[idx_t]
+#     mut = mut[idx_t]
+    
+    
+#     mu_s = centers_s.mean(axis=0)
+#     mu_t = centers_t.mean(axis=0)
+
+#     # Between-cluster covariances
+#     B_s = sum((c - mu_s)[:, None] @ (c - mu_s)[None, :] for c in centers_s) / 3
+#     B_t = sum((c - mu_t)[:, None] @ (c - mu_t)[None, :] for c in centers_t) / 3
+
+#     # Total population covariances
+#     Sigma_s = Sigma + B_s
+#     Sigma_t = Sigma + B_t
+    
+    
+#     # vec_Sigma = np.kron(final_Sigma, np.identity(ns + nt))
+#     from scipy import sparse
+
+#     vec_Sigma_1 = sparse.kron(sparse.identity(Xs.shape[0]), Sigma_s,  format='csr')
+#     vec_Sigma_2 = sparse.kron(sparse.identity(Xt.shape[0]), Sigma_t, format='csr')
+#     vec_Sigma = sparse.block_diag([vec_Sigma_1, vec_Sigma_2], format='csr')
+    
+#     vec_Sigma_matrix = vec_Sigma.toarray()
+    
+#     return Xs, Xt, ys, yt, mus, mut, vec_Sigma_matrix
+def generate_data_matrix_normal(n, q, delta, cov, seed, shift = None):
+    """
+    X ~ MN_{n x q}(MU, I_n, sigma^2 I_q)
+    MU has first n/3 rows = mu1, next n/3 = mu2, last n/3 = mu3.
+    """
+    np.random.seed(seed)
+    m = n 
+
+    mu1 = np.zeros(q) 
+    mu2 = np.zeros(q)
+    mu3 = np.zeros(q)
+    mu2[0] = delta
+    mu3[0] = delta/2
+    mu3[1] = np.sqrt(3)/2 *delta 
+    MU = np.vstack([
+        np.tile(mu1, (m,1)),
+        np.tile(mu2, (m,1)),
+        np.tile(mu3, (m,1))
+    ])
+    if shift:
+        MU += shift
+    noise = np.random.multivariate_normal(
+        mean=np.zeros(q),
+        cov=cov,
+        size=m*3
+    )
+
+    X = MU + noise
+    labels = np.array([1]*m + [2]*m + [3]*m)
+
+    return X, labels, MU
 def random_3_clusters_correlate(ns=100,nt=50, dim=2, delta: float = 10, rho = 0.2, seed=None):
     rng = np.random.default_rng(seed)
     shift = 2
-
-    centers_t = random_3_points(dim=dim, delta=delta)
-    centers_s = centers_t + shift
-    Xs = []
-    ys = []
-    mus = []
     Sigma = np.array([[rho**abs(i-j) for j in range(dim)] for i in range(dim)])
-    for i, center in enumerate(centers_s):
-        cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=ns)
-        Xs.append(cluster_points)
-        ys.append(np.full(ns, i))
-        for _ in range(ns):
-            mus.append(center.copy())
-    mus = np.array(mus)
-    Xs = np.vstack(Xs)
-    ys = np.concatenate(ys)
-
-    Xt = []
-    yt = []
-    mut = []
-    for i, center in enumerate(centers_t):
-        cluster_points = rng.multivariate_normal(mean=center, cov=Sigma, size=nt)
-        Xt.append(cluster_points)
-        yt.append(np.full(nt, i))
-        for _ in range(nt):
-            mut.append(center.copy())
-    mut = np.array(mut)
-
-    Xt = np.vstack(Xt)
-    yt = np.concatenate(yt)
-
-    # Shuffle source
-    idx_s = rng.permutation(len(Xs))
-    Xs = Xs[idx_s]
-    ys = ys[idx_s]
-    mus = mus[idx_s]
-    # Shuffle target
-    idx_t = rng.permutation(len(Xt))
-    Xt = Xt[idx_t]
-    yt = yt[idx_t]
-    mut = mut[idx_t]
     
-    
-    mu_s = centers_s.mean(axis=0)
-    mu_t = centers_t.mean(axis=0)
-
-    # Between-cluster covariances
-    B_s = sum((c - mu_s)[:, None] @ (c - mu_s)[None, :] for c in centers_s) / 3
-    B_t = sum((c - mu_t)[:, None] @ (c - mu_t)[None, :] for c in centers_t) / 3
-
-    # Total population covariances
-    Sigma_s = Sigma + B_s
-    Sigma_t = Sigma + B_t
-    
-    
-    # vec_Sigma = np.kron(final_Sigma, np.identity(ns + nt))
-    from scipy import sparse
-
-    vec_Sigma_1 = sparse.kron(sparse.identity(Xs.shape[0]), Sigma_s,  format='csr')
-    vec_Sigma_2 = sparse.kron(sparse.identity(Xt.shape[0]), Sigma_t, format='csr')
-    vec_Sigma = sparse.block_diag([vec_Sigma_1, vec_Sigma_2], format='csr')
-    
-    
-    
+    Xs, ys, mus = generate_data_matrix_normal(n=ns, q=dim, delta=delta, cov=Sigma, seed=seed)
+    Xt, yt, mut = generate_data_matrix_normal(n=nt, q=dim, delta=delta, cov=Sigma, seed=seed, shift = 2)
+    vec_Sigma = np.kron(np.eye(ns*3 + nt*3), Sigma)
     return Xs, Xt, ys, yt, mus, mut, vec_Sigma
-
 
 if __name__ == "__main__":
 
@@ -818,11 +867,53 @@ if __name__ == "__main__":
     Xs, Xt, ys, yt, mus, mut, final_Sigma = random_3_clusters_correlate(ns=ns,nt=nt, dim=d, delta = 8, rho = 0.2, seed = 1)
     # Xs = sample_normal_data_correlate(mu_s, rho, random_state=None)
     # Xt = sample_normal_data_correlate(mu_t, rho, random_state=None)
-    
+    identity_sigma = np.identity((Xs.shape[0]+Xt.shape[0])*d)
     print("X shape:", Xs.shape, Xt.shape)
     print("y shape", ys.shape, yt.shape)
     print(type(final_Sigma))
     print(final_Sigma.shape)
+    
+    print(type(identity_sigma))
+    print(identity_sigma.shape)
+    
+    
+    
+    
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+
+
+    # ----- DEMONSTRATION -----
+
+    X, labels, MU = Xs.copy(), ys.copy(), mus.copy()
+
+    plt.figure(figsize=(7,6))
+
+    # Scatter plot colored by label
+    for k, color in zip([1,2,3], ["red", "green", "blue"]):
+        idx = labels == k
+        plt.scatter(X[idx,0], X[idx,1], s=20, c=color, label=f"Cluster {k}", alpha=0.6)
+    print(MU)
+    # Cluster means
+    unique_means = MU[[0, len(MU)//3, 2*len(MU)//3]]
+    plt.scatter(unique_means[:,0], unique_means[:,1],
+                c=["red","green","blue"], s=200, marker="X", edgecolors="black",
+                label="Means")
+
+    plt.title("2D demonstration of matrix-normal generated data")
+    plt.xlabel("X1")
+    plt.ylabel("X2")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    
+    
+    
+    
+    
     # print(final_Sigma[0])
     # print(yt)
     # # print(*Xs, sep = "\n")

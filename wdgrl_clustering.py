@@ -67,7 +67,7 @@ def main():
     # Xt, Yt, _ = dataset["target"]
     delta = 8
     rho = 0.8
-    Xs, Xt,Ys,Yt,_1,_2 = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
+    Xs, Xt,Ys,Yt,_1,_2, _3 = gendata.random_3_clusters_correlate(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, rho = rho,seed=9999999)
 
 
