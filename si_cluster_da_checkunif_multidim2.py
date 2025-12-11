@@ -15,8 +15,8 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 100, 50, 10
-K = 3
+ns, nt, d = 150, 50, 1
+K = 2
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
 device = "cpu"
@@ -38,7 +38,7 @@ final_model = WDGRL(
     device=device,
 )
 
-final_model.load_model("trained_model/20251207-222652-10dims")
+final_model.load_model("trained_model/20251111-083111-1dims")
 
 # def conditional_power(M, )
 
@@ -61,7 +61,7 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
     eta_c2_idx[idx_cluster_c2] = 1 / len(idx_cluster_c2)
     eta_c2 = np.kron(I_d, eta_c2_idx)
    
-    eta_tmp = (eta_c1 - eta_c2)
+    eta_tmp = eta_c1 - eta_c2
     sign_tmp = np.dot(eta_tmp.T, vec(Xt))
     sign = np.sign(sign_tmp).astype(int)
     # print("eta_tmp", eta_tmp)
@@ -69,7 +69,7 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
         return sign
     eta_sign = np.dot(eta_tmp, sign)
 
-    eta = np.vstack((np.zeros((ns*d, 1)), eta_sign)) #/ d
+    eta = np.vstack((np.zeros((ns*d, 1)), eta_sign))
     etaTXvec = np.dot(eta.T, X_vec)
 
     etaT_Sigma_eta = np.dot(np.dot(eta.T, Sigma), eta)
@@ -96,15 +96,12 @@ def overconditioning(model, X,eta, a, b, np_wdgrl, n_clusters, initial_centroids
     else:        
         interval_da, a_, b_ = conditioning.get_dnn_interval(X,a,b,np_wdgrl)
         interval_da = [interval_da]
-    # print("interval da", interval_da)
-
-    interval_da=[(-np.inf, np.inf)]
 
     # interval_kmean = construct_interval.KMeancondition(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_kmean = construct_interval.KMeancondition2(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     # interval_kmean = construct_interval.KMeanconditionCUPY(X.shape[0], n_clusters, a_, b_, initial_centroids_obs, labels_all_obs, members_all_obs,z)
     interval_test_statistic = construct_interval.statistic_condition(eta, vec(a[ns:]), vec(b[ns:]), vec(X[ns:]))
-    # print("interval_kmean", interval_kmean)
+
     final_interval = util.interval_intersection(interval_test_statistic,
                       util.interval_intersection(interval_da, interval_kmean))
     return final_interval
@@ -157,7 +154,8 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
 
     if log is not None:
         with open(log, "a") as f:
-            f.write(f"{len(Z)}\n")
+            f.write(f"Number of intervals: {countitv}\n\n")
+            f.write(f"Final interval: {Z}\n")
     # print("Final interval:", Z)
     return Z
 
@@ -215,7 +213,7 @@ def permutation_test(Xt, idx_cluster_c1, idx_cluster_c2,
 
     # two-sided p-value
     p_value = np.mean(np.abs(permuted_stats) >= np.abs(observed_stat))
-
+    print("mean permuted stat:", np.mean(permuted_stats))
     return {
         "observed_stat": observed_stat,
         "p_value": p_value,
@@ -229,7 +227,7 @@ def vec(A):
 
 def run(mu_s, mu_t, K, device,_=None):
     global final_model
-    dataseed = _+1 #random.randint(0, 2**32 - 1)
+    dataseed = _ #random.randint(0, 2**32 - 1)
     # print("Data seed:", dataseed)
     # ---- Generate synthetic data ----
     # try:
@@ -263,10 +261,10 @@ def run(mu_s, mu_t, K, device,_=None):
         print("test statistic is none", e) 
         return None
     
-    # permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
-    # with open(f'logs/selective_inference_log/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
-    #     f.write(f"{permutation_test_pvalue}\n")
-    # return permutation_test_pvalue
+    permutation_test_pvalue = permutation_test(Xt, c1_obs, c2_obs, test_statistic_permutationtest,)["p_value"]
+    with open(f'logs/checkpermutation/FPRpermutation_p_valueslist{ns}.txt', 'a') as f:
+        f.write(f"{permutation_test_pvalue}\n")
+    return permutation_test_pvalue
     a_2d = a.reshape(n, d)
     b_2d = b.reshape(n, d)
 
@@ -277,29 +275,24 @@ def run(mu_s, mu_t, K, device,_=None):
 
 
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
-    # print("oc", final_interval)
-    st = time.time()
-    final_interval = parametric(final_model, 
-                                X_origin, 
-                                a_2d, 
-                                b_2d,
-                                eta_tmp,
-                                np_wdgrl, 
-                                K, c1, c2, c1_obs, c2_obs, 
-                                signobs = sign, 
-                                zmin=-20, zmax=20,seed=dataseed, log=f'logs/selective_inference_log/countitv0_{ns}.txt')
-    en = time.time()
-    with open(f'logs/selective_inference_log/counttime0_{ns}.txt', 'a') as f:
-        f.write(f"{en-st}\n")
-    # final_interval = [(-np.inf, np.inf)]
+    # final_interval = parametric(final_model, 
+    #                             X_origin, 
+    #                             a_2d, 
+    #                             b_2d,
+    #                             eta_tmp,
+    #                             np_wdgrl, 
+    #                             K, c1, c2, c1_obs, c2_obs, 
+    #                             signobs = sign, 
+    #                             zmin=-20, zmax=20,seed=dataseed)
+    final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
     # print("Final interval",final_interval)
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    # print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    # with open(f'logs/selective_inference_log/FPRoc_nonDA_p_valueslist{ns}.txt', 'a') as f:
-    #     f.write(f"{selective_p_value}\n")
+    with open(f'logs/checkpermutation/FPRnaive_p_valueslist{ns}.txt', 'a') as f:
+        f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
     #     print("Error during run:", e)
@@ -326,8 +319,8 @@ if __name__ == "__main__":
             list_p_values.append(p_value)
 
     # print("Running time:", time.time() - st, "(s)")
-    # underalpha = sum(1 for p in list_p_values if p <= 0.05)
-    # print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
+    underalpha = sum(1 for p in list_p_values if p <= 0.05)
+    print('\nFalse positive rate:', underalpha/len(list_p_values), 'out of', len(list_p_values))
 
     # # Kiểm định thống kê
     # kstest = stats.kstest(list_p_values, 'uniform')

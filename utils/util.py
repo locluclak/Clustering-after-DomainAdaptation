@@ -83,11 +83,11 @@ def interval_union(a, b):
 def solve_quadratic_inequality(a, b, c):
     """ ax^2 + bx +c <= 0 """
     a, b, c = float(a), float(b), float(c)
-    if abs(a) < 1e-8:
+    if abs(a) < 1e-18:
         a = 0
-    if abs(b) < 1e-8:
+    if abs(b) < 1e-18:
         b = 0
-    if abs(c) < 1e-8:
+    if abs(c) < 1e-18:
         c = 0
     if a == 0:
         if b > 0:

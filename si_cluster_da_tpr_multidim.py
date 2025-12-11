@@ -17,7 +17,7 @@ import gendata
 from models.wdgrl import WDGRL
 
 
-ns, nt, d = 150, 100, 10
+ns, nt, d = 100, 50, 10
 K = 3
 mu_s = np.full((ns, d), 2)
 mu_t = np.full((nt, d), 0)
@@ -49,7 +49,7 @@ final_model = WDGRL(
 # final_model.load_model("logs/20251028-103802-1layer-delta4")
 # final_model.load_model("logs/20251028-103458-1layer-delta6")
 # final_model.load_model("logs/20251028-103208-1layer-delta8")
-final_model.load_model("logs/20251102-185526-delta4")
+final_model.load_model("logs/20251102-185748-delta8")
 
 # 20251102-185403-delta2
 # 20251102-185526-delta4
@@ -78,7 +78,7 @@ def test_statistic(X_vec, Xt, ns, nt, d, n_clusters, Sigma, labels_all_obs,retur
     eta_c2_idx[idx_cluster_c2] = 1 / len(idx_cluster_c2)
     eta_c2 = np.kron(I_d, eta_c2_idx)
    
-    eta_tmp = eta_c1 - eta_c2
+    eta_tmp = 1/d * (eta_c1 - eta_c2)
     sign_tmp = np.dot(eta_tmp.T, vec(Xt))
     sign = np.sign(sign_tmp).astype(int)
     # print("eta_tmp", eta_tmp)
@@ -173,8 +173,7 @@ def parametric(model, X, a, b, eta, np_wdgrl, n_clusters, c1, c2, c1_obs, c2_obs
 
     if log is not None:
         with open(log, "a") as f:
-            f.write(f"Number of intervals: {countitv}\n\n")
-            f.write(f"Final interval: {Z}\n")
+            f.write(f"{len(Z)}\n")
     # print("Final interval:", Z)
     return Z
 
@@ -266,7 +265,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # ---- Generate synthetic data ----
     # try:
     global ns, nt, d
-
+    print("Source",ns)
     # dataset = gendata.gen_domain_adaptation_data2(
     #     ns=ns,
     #     nt=nt,
@@ -279,7 +278,7 @@ def run(mu_s, mu_t, K, device,_=None):
     # )
     # Xs, Ys, _1 = dataset["source"]
     # Xt, Yt, _2 = dataset["target"]
-    delta = 4
+    delta = 8
     cluster_std = [0.25, 0.5, 1]
     Xs, Xt, Ys, Yt, mus, mut = gendata.random_3_clusters(ns=ns//3, nt=nt//3, dim=d, 
                                              delta=delta, cluster_std=cluster_std,seed=dataseed)
@@ -310,7 +309,7 @@ def run(mu_s, mu_t, K, device,_=None):
     initial_centroids_obs, labels_all_obs, members_all_obs = kmeans(X_transformed, K)
     # print(labels_all_obs)
     labelkmean = labels_all_obs[-1][ns:]
-    print("ari",adjusted_rand_score(Yt, labelkmean))
+    # print("ari",adjusted_rand_score(Yt, labelkmean))
 
 
     # Sigma_s = compute_cov_matrix(0.25**2, 0.5**2, 1**2, mus[0], mus[1], mus[2])
@@ -354,7 +353,7 @@ def run(mu_s, mu_t, K, device,_=None):
 
     std = np.sqrt(etaT_Sigma_eta)
 
-
+    st = time.time()
     # final_interval = overconditioning(final_model, X_origin,eta_tmp, a_2d, b_2d,np_wdgrl, K, initial_centroids_obs, labels_all_obs, members_all_obs,z=etaTX, X_=X_transformed)
     final_interval = parametric(final_model, 
                                 X_origin, 
@@ -365,17 +364,20 @@ def run(mu_s, mu_t, K, device,_=None):
                                 K, c1, c2, c1_obs, c2_obs, 
                                 signobs = sign, 
                                 zmin=-20*std, zmax=20*std,
-                                  seed=dataseed)
+                                  seed=dataseed, log=f'logs/selective_inference_log/countitvtpr_{ns}.txt')
+    en = time.time()
+    with open(f'logs/selective_inference_log/counttimetpr_{ns}.txt', 'a') as f:
+        f.write(f"{en-st}\n")
     # final_interval = [(-np.inf, np.inf)]
     
     # print(etaTX)
     # print("Final interval",final_interval)
     selective_p_value = util.compute_p_value(final_interval, etaTX, etaT_Sigma_eta)
-    print(f"test-stat: {etaTX}, p-value:", selective_p_value)
+    # print(f"test-stat: {etaTX}, p-value:", selective_p_value)
 
-    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
-    with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
-        f.write(f"{selective_p_value}\n")
+
+    # with open(f'logs/selective_inference_log/TPRparametric_p_valueslist_delta{delta}.txt', 'a') as f:
+    #     f.write(f"{selective_p_value}\n")
     return selective_p_value
     # except Exception as e:
     #     print("Error during run:", e)
@@ -388,12 +390,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run iterations from start to end index")
     parser.add_argument("start", type=int, nargs="?", default=1, help="Start iteration index (default: 0)")
     parser.add_argument("end", type=int, nargs="?", default=1, help="End iteration index (inclusive, default: 1)")
+    parser.add_argument("ns", type=int, nargs="?", default=100, help="num of ns")
 
     list_p_values = []
     # iteration = 24
 
     args = parser.parse_args()
-
+    ns = args.ns
 
     for i in range(args.start, args.end + 1):
         print(f"\n--- Iteration {i}/{args.end} ---")

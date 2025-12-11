@@ -20,7 +20,7 @@ experiment:
 data:
   ns: 2000
   nt: 500
-  n_features: 10
+  n_features: 40
   dist: 1.5 # distance between clusters
   std_source: [0.25, 0.5, 1] # ignore
   std_target: [0.25, 0.5, 1] # ignore
